@@ -55,7 +55,8 @@ waveshare_backend/venv/
 waveshare_backend/__pycache__/
 waveshare_backend/uploads/
 waveshare_backend/logs/
-waveshare_backend/config/firebase-service-account.json
+waveshare_backend/src/config/firebase-service-account.json
+
 
 #####################################################
 # 🧪 Miscellaneous
