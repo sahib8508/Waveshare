@@ -1,0 +1,64 @@
+#####################################################
+# 🧱 Root Gitignore - Flutter (Frontend) + Backend
+#####################################################
+
+# --- Common system junk ---
+.DS_Store
+Thumbs.db
+*.log
+*.swp
+*.pyc
+*.class
+*.pem
+*.key
+
+# --- IDE / Editor files ---
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+#####################################################
+# 🦋 Flutter App (waveshare)
+#####################################################
+waveshare/.dart_tool/
+waveshare/.flutter-plugins
+waveshare/.flutter-plugins-dependencies
+waveshare/.packages
+waveshare/build/
+waveshare/ios/Pods/
+waveshare/pubspec.lock
+
+# Flutter generated files
+waveshare/**/doc/api/
+waveshare/**/ios/Flutter/.last_build_id
+waveshare/app.*.symbols
+waveshare/app.*.map.json
+
+# Firebase config (private)
+waveshare/android/app/google-services.json
+
+#####################################################
+# ⚙️ Backend (waveshare_backend)
+#####################################################
+waveshare_backend/node_modules/
+waveshare_backend/.env
+waveshare_backend/venv/
+waveshare_backend/__pycache__/
+waveshare_backend/uploads/
+waveshare_backend/logs/
+waveshare_backend/config/firebase-service-account.json
+
+#####################################################
+# 🧪 Miscellaneous
+#####################################################
+coverage/
+pubspec.lock
