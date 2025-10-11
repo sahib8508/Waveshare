@@ -1,65 +1,138 @@
 #####################################################
-# 🧱 Root Gitignore - Flutter (Frontend) + Backend
+# 🛡️ CRITICAL SECURITY - NEVER COMMIT THESE
 #####################################################
-
-# --- Common system junk ---
-.DS_Store
-Thumbs.db
-*.log
-*.swp
-*.pyc
-*.class
+*.env
+.env
+.env.*
+**/firebase-service-account.json
+google-services.json
 *.pem
 *.key
+*.p12
+*.pfx
 
-# --- IDE / Editor files ---
+#####################################################
+# 🖥️ SYSTEM & OS FILES
+#####################################################
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.log
+*.swp
+*.swo
+*~
+.cache
+.temp
+.tmp
+
+#####################################################
+# 💻 IDE & EDITOR CONFIGURATIONS
+#####################################################
 .idea/
+.vscode/
 *.iml
 *.ipr
 *.iws
-.vscode/
 .atom/
-.build/
-.buildlog/
-.history
-.svn/
-.swiftpm/
-migrate_working_dir/
+.fleet/
+.project
+.settings/
+.classpath
 
 #####################################################
-# 🦋 Flutter App (waveshare)
+# 🦋 FLUTTER APP (waveshare)
 #####################################################
+# Dart tool files
 waveshare/.dart_tool/
 waveshare/.flutter-plugins
 waveshare/.flutter-plugins-dependencies
 waveshare/.packages
-waveshare/build/
-waveshare/ios/Pods/
 waveshare/pubspec.lock
 
-# Flutter generated files
-waveshare/**/doc/api/
+# Build outputs
+waveshare/build/
+waveshare/.flutter-plugins
+waveshare/.flutter-plugins-dependencies
+
+# iOS
+waveshare/ios/Pods/
+waveshare/ios/.symlinks/
+waveshare/ios/Flutter/Flutter.framework
+waveshare/ios/Flutter/Flutter.podspec
+waveshare/ios/.generated/
+waveshare/ios/Flutter/app.flx
+waveshare/ios/Flutter/app.zip
+waveshare/ios/Flutter/flutter_assets/
+waveshare/ios/ServiceDefinitions.json
+waveshare/ios/Runner/GeneratedPluginRegistrant.*
 waveshare/**/ios/Flutter/.last_build_id
+
+# Android
+waveshare/android/app/google-services.json
+waveshare/android/.gradle/
+waveshare/android/gradle/
+waveshare/android/captures/
+waveshare/android/local.properties
+waveshare/android/**/GeneratedPluginRegistrant.java
+waveshare/android/key.properties
+waveshare/android/app/*.jks
+waveshare/android/app/*.keystore
+
+# Web
+waveshare/web/*.js
+waveshare/web/*.js.map
+
+# Miscellaneous
+waveshare/.history
+waveshare/.svn/
+waveshare/migrate_working_dir/
+waveshare/*.iml
 waveshare/app.*.symbols
 waveshare/app.*.map.json
-
-# Firebase config (private)
-waveshare/android/app/google-services.json
+waveshare/coverage/
+waveshare/doc/api/
 
 #####################################################
-# ⚙️ Backend (waveshare_backend)
+# ⚙️ NODE.JS BACKEND (waveshare_backend)
 #####################################################
+# Dependencies
 waveshare_backend/node_modules/
+waveshare_backend/package-lock.json
+
+# Environment & Config
 waveshare_backend/.env
-waveshare_backend/venv/
-waveshare_backend/__pycache__/
-waveshare_backend/uploads/
-waveshare_backend/logs/
+waveshare_backend/.env.*
 waveshare_backend/src/config/firebase-service-account.json
 
+# Uploads & Logs
+waveshare_backend/uploads/
+waveshare_backend/logs/
+waveshare_backend/temp/
+waveshare_backend/*.log
+
+# Python (if used for scripts)
+waveshare_backend/venv/
+waveshare_backend/__pycache__/
+waveshare_backend/*.pyc
+
+# Build outputs
+waveshare_backend/dist/
+waveshare_backend/build/
 
 #####################################################
-# 🧪 Miscellaneous
+# 📦 GENERAL BUILD & DEPENDENCY ARTIFACTS
+#####################################################
+node_modules/
+.pnp/
+.pnp.js
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+#####################################################
+# 🧪 TESTING
 #####################################################
 coverage/
-pubspec.lock
+.nyc_output/
+*.test.js.snap
