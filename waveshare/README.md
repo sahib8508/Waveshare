@@ -1,6 +1,6 @@
 # waveshare
 
-WaveShare mobile application
+A new Flutter project.
 
 ## Getting Started
 
