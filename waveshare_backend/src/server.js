@@ -1,9 +1,7 @@
-// Location: waveshare_backend/src/server.js
-
 const express = require('express');
 const cors = require('cors');
 const connectDB = require('./config/database');
-require('dotenv').config();
+require('dotenv').config({ path: '../.env' });
 
 const app = express();
 
