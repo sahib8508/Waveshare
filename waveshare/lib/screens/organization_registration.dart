@@ -51,17 +51,37 @@ class _OrganizationRegistrationState extends State<OrganizationRegistration> {
         setState(() => _isLoading = false);
 
         if (response['success']) {
-          // Go to email verification screen
-          Navigator.pushNamed(
-            context,
-            '/email-verification',
-            arguments: {
-              'email': _adminEmailController.text.trim(),
-              'orgId': response['orgId'],
-            },
+          setState(() => _isLoading = false);
+
+          // Print response for debugging
+          print('✅ Registration Response: $response');
+
+          final orgCode = response['orgCode'] ?? 'N/A';
+          final adminId = response['adminId'] ?? 'N/A';
+          final orgId = response['orgId'] ?? 'N/A';
+
+          // Show success message
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                '✅ Registration Successful!\n\n'
+                    'Organization Code: $orgCode\n'
+                    'Admin ID: $adminId\n'
+                    'Organization ID: $orgId\n\n'
+                    'Share the Organization Code with your members!',
+              ),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 8),
+            ),
           );
+
+          // Wait a bit then go back
+          await Future.delayed(const Duration(seconds: 2));
+          if (mounted) {
+            Navigator.pop(context);
+          }
         } else {
-          // Show error message
+          setState(() => _isLoading = false);
           _showError(response['message'] ?? 'Registration failed');
         }
       } catch (e) {

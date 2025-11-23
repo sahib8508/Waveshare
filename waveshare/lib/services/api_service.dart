@@ -6,7 +6,7 @@ class ApiService {
   // For testing on Android emulator: http://10.0.2.2:3000
   // For testing on physical device: http://YOUR_COMPUTER_IP:3000
   // For production: https://your-domain.com
-  static const String baseUrl = 'http://10.0.2.2:3000/api';
+  static const String baseUrl = 'http://192.168.29.139:3000/api';
 
   // Timeout duration for API calls
   static const Duration timeout = Duration(seconds: 30);
@@ -20,19 +20,32 @@ class ApiService {
     required String adminName,
     required String adminPhone,
   }) async {
+    print('🔵 API Service: Starting registration...');
+    print('🔵 URL: $baseUrl/auth/register');
+
+    final body = {
+      'orgName': orgName,
+      'orgType': orgType,
+      'emailDomain': emailDomain,
+      'adminEmail': adminEmail,
+      'adminName': adminName,
+      'adminPhone': adminPhone,
+    };
+
+    print('🔵 Request body: $body');
+
     try {
+      print('🔵 Sending HTTP POST request...');
+
       final response = await http.post(
         Uri.parse('$baseUrl/auth/register'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'orgName': orgName,
-          'orgType': orgType,
-          'emailDomain': emailDomain,
-          'adminEmail': adminEmail,
-          'adminName': adminName,
-          'adminPhone': adminPhone,
-        }),
+        body: jsonEncode(body),
       ).timeout(timeout);
+
+      print('🟢 Response received!');
+      print('🟢 Status code: ${response.statusCode}');
+      print('🟢 Response body: ${response.body}');
 
       final data = jsonDecode(response.body);
 
@@ -40,6 +53,8 @@ class ApiService {
         return {
           'success': true,
           'orgId': data['orgId'],
+          'orgCode': data['orgCode'],
+          'adminId': data['adminId'],
           'message': data['message'],
         };
       } else {
@@ -49,6 +64,9 @@ class ApiService {
         };
       }
     } catch (e) {
+      print('🔴 ERROR: $e');
+      print('🔴 Error type: ${e.runtimeType}');
+
       return {
         'success': false,
         'message': 'Network error: ${e.toString()}',

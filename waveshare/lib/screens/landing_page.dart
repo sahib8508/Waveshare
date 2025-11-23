@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../utils/constants.dart';
 import '../widgets/landing_button.dart';
+import 'organization_registration.dart';
 
 class LandingPage extends StatelessWidget {
   const LandingPage({super.key});
@@ -152,14 +153,12 @@ class LandingPage extends StatelessWidget {
 
   // Button Actions (temporary - just show messages)
   void _onOrganizationPressed(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Continue as Organization - Coming Soon'),
-        duration: Duration(seconds: 2),
-        backgroundColor: AppConstants.primaryBlue,
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const OrganizationRegistration(),
       ),
     );
-    debugPrint('Organization button pressed');
   }
 
   void _onJoinOrganizationPressed(BuildContext context) {
