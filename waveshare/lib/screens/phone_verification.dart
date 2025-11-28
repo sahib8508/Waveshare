@@ -61,7 +61,10 @@ class _PhoneVerificationState extends State<PhoneVerification> {
       setState(() => _isLoading = false);
 
       if (response['success']) {
-        // Navigate to document upload
+        print('📍 Phone verified, navigating to document upload');
+        print('📍 Data: orgCode=${widget.orgCode}, adminId=${widget.adminId}, orgName=${widget.orgName}');
+
+        // Navigate to document upload with ALL required data
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(

@@ -10,6 +10,7 @@ router.post('/verify-phone', authController.verifyPhoneOTP);
 router.post('/resend-phone-otp', authController.resendPhoneOTP);
 router.post('/upload-document', authController.uploadDocument);
 router.post('/skip-document', authController.skipDocument);
+router.get('/test-s3', authController.testS3);
 
 // Login
 router.post('/login', authController.adminLogin);

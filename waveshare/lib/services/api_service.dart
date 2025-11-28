@@ -131,12 +131,18 @@ class ApiService {
   }
 
 // Upload Document
+  // ✅ FIXED: Upload Document with proper error handling
   static Future<Map<String, dynamic>> uploadDocument({
     required String orgId,
     required String documentType,
     required PlatformFile file,
   }) async {
     try {
+      print('🔵 Uploading document...');
+      print('📤 orgId: $orgId');
+      print('📤 documentType: $documentType');
+      print('📤 fileName: ${file.name}');
+
       var request = http.MultipartRequest(
         'POST',
         Uri.parse('$baseUrl/auth/upload-document'),
@@ -144,49 +150,123 @@ class ApiService {
 
       request.fields['orgId'] = orgId;
       request.fields['documentType'] = documentType;
-      request.files.add(
-        http.MultipartFile.fromBytes(
-          'document',
-          file.bytes!,
-          filename: file.name,
-        ),
-      );
 
-      final response = await request.send().timeout(timeout);
-      final responseData = await http.Response.fromStream(response);
-      final data = jsonDecode(responseData.body);
+      // ✅ CRITICAL: Handle both web and mobile file uploads
+      if (file.bytes != null) {
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'document',
+            file.bytes!,
+            filename: file.name,
+          ),
+        );
+      } else if (file.path != null) {
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            'document',
+            file.path!,
+            filename: file.name,
+          ),
+        );
+      } else {
+        return {
+          'success': false,
+          'message': 'File data not available',
+        };
+      }
 
-      return {
-        'success': response.statusCode == 200,
-        'message': data['message'],
-      };
+      print('📤 Sending request...');
+
+      final streamedResponse = await request.send().timeout(timeout);
+      final response = await http.Response.fromStream(streamedResponse);
+
+      print('🟢 Response status: ${response.statusCode}');
+      print('🟢 Response body: ${response.body}');
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        // ✅ Verify all required fields are present
+        if (data['orgCode'] == null || data['adminId'] == null || data['orgName'] == null) {
+          print('⚠️ WARNING: Backend returned null values');
+          print('📦 Received data: $data');
+          return {
+            'success': false,
+            'message': 'Incomplete data from server',
+          };
+        }
+
+        return {
+          'success': true,
+          'orgCode': data['orgCode'],
+          'adminId': data['adminId'],
+          'orgName': data['orgName'],
+          'message': data['message'] ?? 'Upload successful',
+        };
+      } else {
+        return {
+          'success': false,
+          'message': data['message'] ?? 'Upload failed',
+        };
+      }
     } catch (e) {
-      return {'success': false, 'message': 'Error: $e'};
+      print('🔴 Upload error: $e');
+      return {
+        'success': false,
+        'message': 'Network error: $e',
+      };
     }
   }
 
-// Skip Document
+// ✅ FIXED: Skip Document with proper error handling
   static Future<Map<String, dynamic>> skipDocument({
     required String orgId,
   }) async {
     try {
+      print('🔵 Skipping document upload...');
+      print('📤 orgId: $orgId');
+
       final response = await http.post(
         Uri.parse('$baseUrl/auth/skip-document'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'orgId': orgId}),
       ).timeout(timeout);
 
+      print('🟢 Response status: ${response.statusCode}');
+      print('🟢 Response body: ${response.body}');
+
       final data = jsonDecode(response.body);
 
-      return {
-        'success': response.statusCode == 200,
-        'orgCode': data['orgCode'],
-        'adminId': data['adminId'],
-        'orgName': data['orgName'],
-        'message': data['message'],
-      };
+      if (response.statusCode == 200) {
+        // ✅ Verify all required fields are present
+        if (data['orgCode'] == null || data['adminId'] == null || data['orgName'] == null) {
+          print('⚠️ WARNING: Backend returned null values');
+          print('📦 Received data: $data');
+          return {
+            'success': false,
+            'message': 'Incomplete data from server',
+          };
+        }
+
+        return {
+          'success': true,
+          'orgCode': data['orgCode'],
+          'adminId': data['adminId'],
+          'orgName': data['orgName'],
+          'message': data['message'] ?? 'Skip successful',
+        };
+      } else {
+        return {
+          'success': false,
+          'message': data['message'] ?? 'Skip failed',
+        };
+      }
     } catch (e) {
-      return {'success': false, 'message': 'Error: $e'};
+      print('🔴 Skip error: $e');
+      return {
+        'success': false,
+        'message': 'Network error: $e',
+      };
     }
   }
 

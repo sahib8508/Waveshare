@@ -21,7 +21,7 @@ async function sendSMS(phone, otp) {
     await twilioClient.messages.create({
       body: `Your WaveShare verification code is: ${otp}. Valid for 10 minutes.`,
       from: process.env.TWILIO_PHONE_NUMBER,
-      to: phone.startsWith('+') ? phone : `+91${phone}`, // Add +91 if missing
+      to: phone.startsWith('+') ? phone : `+91${phone}`,
     });
     return true;
   } catch (error) {
@@ -210,7 +210,6 @@ exports.verifyEmailOTP = async (req, res) => {
     };
     await org.save();
 
-    // 🔥 SEND ACTUAL SMS
     const smsSent = await sendSMS(org.adminPhone, phoneOTP);
 
     console.log(smsSent ? '✅ SMS sent' : '⚠️ SMS failed');
@@ -342,7 +341,6 @@ exports.resendPhoneOTP = async (req, res) => {
     };
     await org.save();
 
-    // 🔥 SEND SMS
     await sendSMS(org.adminPhone, phoneOTP);
 
     console.log('📱 Resent phone OTP');
@@ -360,6 +358,8 @@ exports.resendPhoneOTP = async (req, res) => {
   }
 };
 
+// ✅ FIXED: Document Upload with proper error handling
+// ✅ FIXED: Document Upload with proper error handling and data return
 exports.uploadDocument = [
   upload.single('document'),
   async (req, res) => {
@@ -367,7 +367,22 @@ exports.uploadDocument = [
       const { orgId, documentType } = req.body;
       const file = req.file;
 
-      console.log('📄 Document upload:', { orgId, documentType });
+      console.log('📄 Document upload request:', { orgId, documentType, hasFile: !!file });
+
+      // Validate inputs
+      if (!orgId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Organization ID is required',
+        });
+      }
+
+      if (!documentType) {
+        return res.status(400).json({
+          success: false,
+          message: 'Document type is required',
+        });
+      }
 
       if (!file) {
         return res.status(400).json({
@@ -376,6 +391,7 @@ exports.uploadDocument = [
         });
       }
 
+      // Find organization
       const org = await Organization.findOne({ orgId });
       if (!org) {
         return res.status(404).json({
@@ -384,6 +400,9 @@ exports.uploadDocument = [
         });
       }
 
+      console.log('📤 Uploading to S3...');
+
+      // Upload to S3
       const fileName = `${orgId}_${Date.now()}_${file.originalname}`;
       const uploadParams = {
         Bucket: process.env.S3_BUCKET_NAME,
@@ -394,34 +413,55 @@ exports.uploadDocument = [
 
       await s3Client.send(new PutObjectCommand(uploadParams));
 
-      org.documentUrl = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/documents/${fileName}`;
+      console.log('✅ S3 upload successful');
+
+      // Update organization
+      const documentUrl = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/documents/${fileName}`;
+      org.documentUrl = documentUrl;
       org.documentType = documentType;
       org.verificationStatus = 'fully_verified';
       await org.save();
 
-      console.log('✅ Document uploaded');
-
-      res.json({
-        success: true,
-        message: 'Document uploaded',
+      console.log('✅ Document uploaded and org updated');
+      console.log('📤 Returning data:', {
         orgCode: org.orgCode,
         adminId: org.adminId,
         orgName: org.orgName,
       });
+
+      // ✅ CRITICAL: Return all required fields
+      return res.status(200).json({
+        success: true,
+        message: 'Document uploaded successfully',
+        orgCode: org.orgCode,
+        adminId: org.adminId,
+        orgName: org.orgName,
+        documentUrl: documentUrl,
+      });
     } catch (error) {
       console.error('❌ Document upload error:', error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
-        message: 'Upload failed',
+        message: 'Upload failed: ' + error.message,
         error: error.message,
       });
     }
   },
 ];
 
+// ✅ FIXED: Skip Document with proper data return
 exports.skipDocument = async (req, res) => {
   try {
     const { orgId } = req.body;
+
+    console.log('⏭️ Skip document request:', { orgId });
+
+    if (!orgId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Organization ID is required',
+      });
+    }
 
     const org = await Organization.findOne({ orgId });
     if (!org) {
@@ -434,17 +474,52 @@ exports.skipDocument = async (req, res) => {
     org.verificationStatus = 'fully_verified';
     await org.save();
 
-    res.json({
+    console.log('✅ Document skipped, org verified');
+    console.log('📤 Returning data:', {
+      orgCode: org.orgCode,
+      adminId: org.adminId,
+      orgName: org.orgName,
+    });
+
+    // ✅ CRITICAL: Return all required fields with status 200
+    return res.status(200).json({
       success: true,
-      message: 'Document skipped',
+      message: 'Registration completed',
       orgCode: org.orgCode,
       adminId: org.adminId,
       orgName: org.orgName,
     });
   } catch (error) {
+    console.error('❌ Skip document error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error: ' + error.message,
+      error: error.message,
+    });
+  }
+};
+
+exports.testS3 = async (req, res) => {
+  try {
+    const testParams = {
+      Bucket: process.env.S3_BUCKET_NAME,
+      Key: 'test.txt',
+      Body: 'Hello from WaveShare!',
+      ContentType: 'text/plain',
+    };
+
+    await s3Client.send(new PutObjectCommand(testParams));
+
+    res.json({
+      success: true,
+      message: 'S3 connection working!',
+      url: `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/test.txt`,
+    });
+  } catch (error) {
+    console.error('S3 Test Error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error',
+      message: error.message,
     });
   }
 };

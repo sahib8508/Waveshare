@@ -4,7 +4,6 @@ import '../utils/constants.dart';
 import '../services/api_service.dart';
 import 'registration_success.dart';
 
-
 class DocumentUpload extends StatefulWidget {
   final String orgId;
   final String orgCode;
@@ -60,6 +59,8 @@ class _DocumentUploadState extends State<DocumentUpload> {
     setState(() => _isLoading = true);
 
     try {
+      print('📤 Uploading with orgId: ${widget.orgId}');
+
       final response = await ApiService.uploadDocument(
         orgId: widget.orgId,
         documentType: _selectedDocType!,
@@ -68,13 +69,35 @@ class _DocumentUploadState extends State<DocumentUpload> {
 
       setState(() => _isLoading = false);
 
-      if (response['success']) {
-        _navigateToSuccess();
+      print('📦 Upload response: $response');
+
+      if (response['success'] == true) {
+        // ✅ Check if we got valid data from backend
+        final orgCode = response['orgCode'];
+        final adminId = response['adminId'];
+        final orgName = response['orgName'];
+
+        if (orgCode == null || adminId == null || orgName == null) {
+          print('⚠️ Backend returned null values, using widget fallback');
+          _navigateToSuccess(
+            orgCode: widget.orgCode,
+            adminId: widget.adminId,
+            orgName: widget.orgName,
+          );
+        } else {
+          print('✅ Using backend data');
+          _navigateToSuccess(
+            orgCode: orgCode,
+            adminId: adminId,
+            orgName: orgName,
+          );
+        }
       } else {
         _showError(response['message'] ?? 'Upload failed');
       }
     } catch (e) {
       setState(() => _isLoading = false);
+      print('🔴 Upload error: $e');
       _showError('Error: $e');
     }
   }
@@ -83,30 +106,62 @@ class _DocumentUploadState extends State<DocumentUpload> {
     setState(() => _isLoading = true);
 
     try {
+      print('⏭️ Skipping with orgId: ${widget.orgId}');
+
       final response = await ApiService.skipDocument(
         orgId: widget.orgId,
       );
 
       setState(() => _isLoading = false);
 
-      if (response['success']) {
-        _navigateToSuccess();
+      print('📦 Skip response: $response');
+
+      if (response['success'] == true) {
+        // ✅ Check if we got valid data from backend
+        final orgCode = response['orgCode'];
+        final adminId = response['adminId'];
+        final orgName = response['orgName'];
+
+        if (orgCode == null || adminId == null || orgName == null) {
+          print('⚠️ Backend returned null values, using widget fallback');
+          _navigateToSuccess(
+            orgCode: widget.orgCode,
+            adminId: widget.adminId,
+            orgName: widget.orgName,
+          );
+        } else {
+          print('✅ Using backend data');
+          _navigateToSuccess(
+            orgCode: orgCode,
+            adminId: adminId,
+            orgName: orgName,
+          );
+        }
+      } else {
+        _showError(response['message'] ?? 'Skip failed');
       }
     } catch (e) {
       setState(() => _isLoading = false);
+      print('🔴 Skip error: $e');
       _showError('Error: $e');
     }
   }
 
-  void _navigateToSuccess() {
+  void _navigateToSuccess({
+    required String orgCode,
+    required String adminId,
+    required String orgName,
+  }) {
+    print('📍 Navigating to success with: orgCode=$orgCode, adminId=$adminId, orgName=$orgName');
+
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
         builder: (context) => RegistrationSuccess(
-          orgCode: widget.orgCode,
-          adminId: widget.adminId,
+          orgCode: orgCode,
+          adminId: adminId,
           orgId: widget.orgId,
-          orgName: widget.orgName,
+          orgName: orgName,
         ),
       ),
     );
@@ -156,7 +211,7 @@ class _DocumentUploadState extends State<DocumentUpload> {
 
               // Document Type Dropdown
               DropdownButtonFormField<String>(
-                initialValue: _selectedDocType,
+                value: _selectedDocType,
                 decoration: InputDecoration(
                   labelText: 'Document Type',
                   border: OutlineInputBorder(
