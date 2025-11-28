@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../utils/constants.dart';
 import '../services/api_service.dart';
+import 'email_verification_screen.dart';
 
 class OrganizationRegistration extends StatefulWidget {
   const OrganizationRegistration({Key? key}) : super(key: key);
@@ -17,6 +18,11 @@ class _OrganizationRegistrationState extends State<OrganizationRegistration> {
   final _adminEmailController = TextEditingController();
   final _adminNameController = TextEditingController();
   final _adminPhoneController = TextEditingController();
+
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
 
   String _selectedOrgType = 'Education'; // Default value
   bool _isLoading = false; // Show loading spinner when submitting
@@ -46,44 +52,34 @@ class _OrganizationRegistrationState extends State<OrganizationRegistration> {
           adminEmail: _adminEmailController.text.trim(),
           adminName: _adminNameController.text.trim(),
           adminPhone: _adminPhoneController.text.trim(),
+          password: _passwordController.text.trim(),
         );
 
         setState(() => _isLoading = false);
 
-        if (response['success']) {
-          setState(() => _isLoading = false);
 
-          // Print response for debugging
-          print('✅ Registration Response: $response');
 
-          final orgCode = response['orgCode'] ?? 'N/A';
-          final adminId = response['adminId'] ?? 'N/A';
-          final orgId = response['orgId'] ?? 'N/A';
+          // Navigate to success screen
+          if (response['success']) {
+            setState(() => _isLoading = false);
 
-          // Show success message
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                '✅ Registration Successful!\n\n'
-                    'Organization Code: $orgCode\n'
-                    'Admin ID: $adminId\n'
-                    'Organization ID: $orgId\n\n'
-                    'Share the Organization Code with your members!',
+            // Navigate to email verification
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => EmailVerificationScreen(
+                  email: _adminEmailController.text.trim(),
+                  orgId: response['orgId'] ?? '',
+                  orgCode: response['orgCode'] ?? '',
+                  adminId: response['adminId'] ?? '',
+                  orgName: _orgNameController.text.trim(),
+                ),
               ),
-              backgroundColor: Colors.green,
-              duration: const Duration(seconds: 8),
-            ),
-          );
-
-          // Wait a bit then go back
-          await Future.delayed(const Duration(seconds: 2));
-          if (mounted) {
-            Navigator.pop(context);
+            );
+          } else {
+            setState(() => _isLoading = false);
+            _showError(response['message'] ?? 'Registration failed');
           }
-        } else {
-          setState(() => _isLoading = false);
-          _showError(response['message'] ?? 'Registration failed');
-        }
       } catch (e) {
         setState(() => _isLoading = false);
         _showError('Network error: ${e.toString()}');
@@ -268,6 +264,62 @@ class _OrganizationRegistrationState extends State<OrganizationRegistration> {
                 ),
                 const SizedBox(height: 32),
 
+                const SizedBox(height: 16),
+
+                // Password Field
+                TextFormField(
+                  controller: _passwordController,
+                  obscureText: _obscurePassword,
+                  decoration: InputDecoration(
+                    labelText: 'Password',
+                    hintText: 'Create admin password',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(AppConstants.borderRadiusMedium),
+                    ),
+                    prefixIcon: const Icon(Icons.lock),
+                    suffixIcon: IconButton(
+                      icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
+                      onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                    ),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter password';
+                    }
+                    if (value.length < 8) {
+                      return 'Password must be at least 8 characters';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                  // Confirm Password Field
+                TextFormField(
+                  controller: _confirmPasswordController,
+                  obscureText: _obscureConfirmPassword,
+                  decoration: InputDecoration(
+                    labelText: 'Confirm Password',
+                    hintText: 'Re-enter password',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(AppConstants.borderRadiusMedium),
+                    ),
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    suffixIcon: IconButton(
+                      icon: Icon(_obscureConfirmPassword ? Icons.visibility : Icons.visibility_off),
+                      onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+                    ),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please confirm password';
+                    }
+                    if (value != _passwordController.text) {
+                      return 'Passwords do not match';
+                    }
+                    return null;
+                  },
+                ),
                 // Submit Button
                 ElevatedButton(
                   onPressed: _isLoading ? null : _submitForm,

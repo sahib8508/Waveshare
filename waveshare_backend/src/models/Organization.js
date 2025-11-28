@@ -27,6 +27,7 @@ const organizationSchema = new mongoose.Schema({
   adminId: {
     type: String,
     required: true,
+    unique: true,
   },
   adminEmail: {
     type: String,
@@ -40,12 +41,40 @@ const organizationSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  adminPassword: {
+    type: String,
+    required: false,
+  },
+  // OTP Storage
+  emailOTP: {
+    code: String,
+    expiresAt: Date,
+  },
+  phoneOTP: {
+    code: String,
+    expiresAt: Date,
+  },
+  // Verification stages
   verificationStatus: {
     type: String,
-    enum: ['pending', 'email_verified', 'document_verified', 'fully_verified'],
+    enum: ['pending', 'email_verified', 'phone_verified', 'document_uploaded', 'fully_verified'],
     default: 'pending',
   },
+  // Document verification
+  documentUrl: {
+    type: String,
+    required: false,
+  },
+  documentType: {
+    type: String,
+    enum: ['Official Letterhead', 'Registration Certificate', 'Accreditation Document'],
+    required: false,
+  },
   createdAt: {
+    type: Date,
+    default: Date.now,
+  },
+  lastSynced: {
     type: Date,
     default: Date.now,
   },
