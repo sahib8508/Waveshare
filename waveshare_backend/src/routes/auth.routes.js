@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/auth.controller');
 
-// Registration flow
+// Registration Flow
 router.post('/register', authController.registerOrganization);
 router.post('/verify-email', authController.verifyEmailOTP);
 router.post('/resend-email-otp', authController.resendEmailOTP);
@@ -10,9 +10,15 @@ router.post('/verify-phone', authController.verifyPhoneOTP);
 router.post('/resend-phone-otp', authController.resendPhoneOTP);
 router.post('/upload-document', authController.uploadDocument);
 router.post('/skip-document', authController.skipDocument);
-router.get('/test-s3', authController.testS3);
+
+// CSV Upload
+router.post('/upload-csv', authController.uploadCSV);
 
 // Login
-router.post('/login', authController.adminLogin);
+router.post('/admin-login', authController.adminLogin);
+
+// Test Routes
+router.get('/test-s3', authController.testS3);
+router.get('/test-csv-upload', authController.testCSVUpload);
 
 module.exports = router;

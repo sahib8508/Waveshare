@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../utils/constants.dart';
+import 'dart:async';
 
-class RegistrationSuccess extends StatelessWidget {
+class RegistrationSuccess extends StatefulWidget {
   final String orgCode;
   final String adminId;
   final String orgId;
@@ -17,25 +18,63 @@ class RegistrationSuccess extends StatelessWidget {
   }) : super(key: key);
 
   @override
+  State<RegistrationSuccess> createState() => _RegistrationSuccessState();
+}
+
+class _RegistrationSuccessState extends State<RegistrationSuccess> {
+  int _countdown = 5;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _startCountdown();
+  }
+
+  void _startCountdown() {
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_countdown > 0) {
+        setState(() => _countdown--);
+      } else {
+        timer.cancel();
+        _navigateToCSVUpload();
+      }
+    });
+  }
+
+  void _navigateToCSVUpload() {
+    Navigator.pushReplacementNamed(
+      context,
+      '/csv-upload',
+      arguments: {
+        'orgId': widget.orgId,
+        'orgCode': widget.orgCode,
+        'adminId': widget.adminId,
+        'orgName': widget.orgName,
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppConstants.backgroundColor,
-      appBar: AppBar(
-        title: const Text('Registration Complete'),
-        backgroundColor: AppConstants.white,
-        automaticallyImplyLeading: false, // Remove back button
-      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(AppConstants.paddingLarge),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Success Icon
               Container(
                 width: 100,
                 height: 100,
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   color: Colors.green,
                   shape: BoxShape.circle,
                 ),
@@ -47,7 +86,6 @@ class RegistrationSuccess extends StatelessWidget {
               ),
               const SizedBox(height: 32),
 
-              // Welcome Text
               const Text(
                 '🎉 Welcome to WaveShare!',
                 style: AppConstants.headingLarge,
@@ -56,64 +94,38 @@ class RegistrationSuccess extends StatelessWidget {
               const SizedBox(height: 16),
 
               Text(
-                orgName,
+                widget.orgName,
                 style: AppConstants.headingMedium,
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 32),
 
-              // Organization Code Card
               _buildInfoCard(
                 title: 'Organization Code',
-                value: orgCode,
+                value: widget.orgCode,
                 subtitle: 'Share this with your members',
                 icon: Icons.business,
               ),
               const SizedBox(height: 16),
 
-              // Admin ID Card
               _buildInfoCard(
                 title: 'Your Admin ID',
-                value: adminId,
+                value: widget.adminId,
                 subtitle: 'Use this to login',
                 icon: Icons.person,
               ),
               const SizedBox(height: 32),
 
-              // Share Buttons
-              const Text(
-                'Share codes with your members:',
+              Text(
+                'Redirecting to setup in $_countdown seconds...',
                 style: AppConstants.bodyMedium,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
 
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _buildShareButton(
-                    icon: Icons.copy,
-                    label: 'Copy Code',
-                    onPressed: () => _copyToClipboard(context, orgCode),
-                  ),
-                  const SizedBox(width: 16),
-                  _buildShareButton(
-                    icon: Icons.share,
-                    label: 'Share',
-                    onPressed: () => _shareCode(orgCode, adminId),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 48),
-
-              // Continue Button
               ElevatedButton(
                 onPressed: () {
-                  // Go to admin login
-                  Navigator.pushNamedAndRemoveUntil(
-                    context,
-                    '/admin-login',
-                        (route) => false,
-                  );
+                  _timer?.cancel();
+                  _navigateToCSVUpload();
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppConstants.primaryBlue,
@@ -121,14 +133,9 @@ class RegistrationSuccess extends StatelessWidget {
                     horizontal: 48,
                     vertical: 16,
                   ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(
-                      AppConstants.borderRadiusMedium,
-                    ),
-                  ),
                 ),
                 child: const Text(
-                  'Continue to Login',
+                  'Go to Setup Now',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
@@ -166,10 +173,7 @@ class RegistrationSuccess extends StatelessWidget {
             children: [
               Icon(icon, color: AppConstants.primaryBlue),
               const SizedBox(width: 12),
-              Text(
-                title,
-                style: AppConstants.bodyMedium,
-              ),
+              Text(title, style: AppConstants.bodyMedium),
             ],
           ),
           const SizedBox(height: 12),
@@ -182,43 +186,9 @@ class RegistrationSuccess extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          Text(
-            subtitle,
-            style: AppConstants.caption,
-          ),
+          Text(subtitle, style: AppConstants.caption),
         ],
       ),
     );
-  }
-
-  Widget _buildShareButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onPressed,
-  }) {
-    return ElevatedButton.icon(
-      onPressed: onPressed,
-      icon: Icon(icon),
-      label: Text(label),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: AppConstants.lightBlue,
-        foregroundColor: AppConstants.primaryBlue,
-      ),
-    );
-  }
-
-  void _copyToClipboard(BuildContext context, String text) {
-    Clipboard.setData(ClipboardData(text: text));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Copied to clipboard!'),
-        duration: Duration(seconds: 2),
-      ),
-    );
-  }
-
-  void _shareCode(String orgCode, String adminId) {
-    // We'll implement share functionality later
-    print('Sharing: $orgCode, $adminId');
   }
 }

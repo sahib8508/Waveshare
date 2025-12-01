@@ -320,6 +320,8 @@ class _OrganizationRegistrationState extends State<OrganizationRegistration> {
                     return null;
                   },
                 ),
+
+
                 // Submit Button
                 ElevatedButton(
                   onPressed: _isLoading ? null : _submitForm,
@@ -348,6 +350,29 @@ class _OrganizationRegistrationState extends State<OrganizationRegistration> {
                     ),
                   ),
                 ),
+                // Add this AFTER admin phone field and BEFORE password field
+                const SizedBox(height: 24),
+
+                // Login Link
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text('Already have an account? '),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pushNamed(context, '/admin-login');
+                      },
+                      child: const Text(
+                        'Login',
+                        style: TextStyle(
+                          color: AppConstants.primaryBlue,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
               ],
             ),
           ),

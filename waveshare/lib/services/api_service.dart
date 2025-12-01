@@ -1,6 +1,9 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
+import 'dart:io'; // For File class
+import 'package:http_parser/http_parser.dart'; // For MediaType
+
 
 class ApiService {
   static const String baseUrl = 'http://192.168.29.139:3000/api';
@@ -113,7 +116,8 @@ class ApiService {
       final response = await http.post(
         Uri.parse('$baseUrl/auth/verify-phone'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'orgId': orgId, 'otp': otp}),  // Change phoneOTP to otp
+        body: jsonEncode(
+            {'orgId': orgId, 'otp': otp}), // Change phoneOTP to otp
       ).timeout(timeout);
 
       final data = jsonDecode(response.body);
@@ -187,7 +191,8 @@ class ApiService {
 
       if (response.statusCode == 200) {
         // ✅ Verify all required fields are present
-        if (data['orgCode'] == null || data['adminId'] == null || data['orgName'] == null) {
+        if (data['orgCode'] == null || data['adminId'] == null ||
+            data['orgName'] == null) {
           print('⚠️ WARNING: Backend returned null values');
           print('📦 Received data: $data');
           return {
@@ -239,7 +244,8 @@ class ApiService {
 
       if (response.statusCode == 200) {
         // ✅ Verify all required fields are present
-        if (data['orgCode'] == null || data['adminId'] == null || data['orgName'] == null) {
+        if (data['orgCode'] == null || data['adminId'] == null ||
+            data['orgName'] == null) {
           print('⚠️ WARNING: Backend returned null values');
           print('📦 Received data: $data');
           return {
@@ -302,35 +308,137 @@ class ApiService {
   // LOGIN
   // ============================================================================
 
+// Add these methods to your existing ApiService class
+
+// CSV Upload
+  static Future<Map<String, dynamic>> uploadCSV({
+    required String orgId,
+    required String csvType,
+    required PlatformFile file,
+  }) async {
+    try {
+      print('📤 Uploading $csvType CSV...');
+      print('   OrgId: $orgId');
+      print('   File: ${file.name}');
+      print('   Size: ${file.size} bytes');
+      print('   Has bytes: ${file.bytes != null}');
+      print('   Has path: ${file.path != null}');
+
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$baseUrl/auth/upload-csv'), // Added /auth // Added /auth
+      );
+
+      // Add form fields
+      request.fields['orgId'] = orgId;
+      request.fields['csvType'] = csvType;
+
+      // ✅ FIX: Handle both web (bytes) and mobile (path)
+      if (file.bytes != null) {
+        // Web platform - use bytes directly
+        print('📱 Using bytes (Web platform)');
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'csvFile',
+            file.bytes!,
+            filename: file.name,
+            contentType: MediaType('text', 'csv'),
+          ),
+        );
+      } else if (file.path != null) {
+        // Mobile/Desktop platform - read from path
+        print('📱 Using path (Mobile/Desktop platform)');
+        var fileStream = http.ByteStream(File(file.path!).openRead());
+        var length = await File(file.path!).length();
+
+        request.files.add(
+          http.MultipartFile(
+            'csvFile',
+            fileStream,
+            length,
+            filename: file.name,
+            contentType: MediaType('text', 'csv'),
+          ),
+        );
+      } else {
+        throw Exception('File has neither bytes nor path');
+      }
+
+      print('🚀 Sending request to: $baseUrl/upload-csv');
+
+      var streamedResponse = await request.send().timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          throw Exception('Upload timeout after 30 seconds');
+        },
+      );
+
+      var response = await http.Response.fromStream(streamedResponse);
+
+      print('📥 Response status: ${response.statusCode}');
+      print('📥 Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        print('✅ Upload successful');
+        return data;
+      } else {
+        final error = json.decode(response.body);
+        throw Exception(error['message'] ?? 'Upload failed');
+      }
+    } catch (e) {
+      print('❌ Upload error: $e');
+      rethrow;
+    }
+  }
+
+// Updated Admin Login (checks CSV status)
+  // ✅ FIXED: Admin Login with correct endpoint
   static Future<Map<String, dynamic>> adminLogin({
-    required String adminId,
+    required String email,
     required String password,
   }) async {
     try {
-      print('🔵 Logging in...');
+      print('🔑 Attempting login...');
+      print('   Email: $email');
+      print('   Endpoint: $baseUrl/auth/admin-login');
 
       final response = await http.post(
-        Uri.parse('$baseUrl/auth/login'),
+        Uri.parse('$baseUrl/auth/admin-login'), // ✅ FIXED: Added /auth
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'adminId': adminId, 'password': password}),
-      ).timeout(timeout);
+        body: json.encode({
+          'email': email,
+          'password': password,
+        }),
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          throw Exception('Request timeout - please check your connection');
+        },
+      );
 
-      final data = jsonDecode(response.body);
+      print('📥 Login response: ${response.statusCode}');
+      print('📥 Body: ${response.body}');
 
-      if (response.statusCode == 200) {
-        return {
-          'success': true,
-          'org': data['org'],
-          'message': data['message'],
-        };
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200 && data['success'] == true) {
+        print('✅ Login successful');
+        print('   Org: ${data['org']['orgName']}');
+        print('   CSV Status: ${data['org']['hasCSVUploaded']}');
+        return data;
+      } else if (response.statusCode == 403) {
+        throw Exception(data['message'] ?? 'Registration not complete');
+      } else if (response.statusCode == 401) {
+        throw Exception('Incorrect password');
+      } else if (response.statusCode == 404) {
+        throw Exception('Email not found');
       } else {
-        return {
-          'success': false,
-          'message': data['message'],
-        };
+        throw Exception(data['message'] ?? 'Login failed');
       }
     } catch (e) {
-      return {'success': false, 'message': 'Network error: $e'};
+      print('❌ Login error: $e');
+      rethrow;
     }
   }
 }

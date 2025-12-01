@@ -83,6 +83,39 @@ const organizationSchema = new mongoose.Schema({
     totalFilesShared: { type: Number, default: 0 },
     totalDataTransferred: { type: Number, default: 0 },
   },
+  // Add to your existing Organization schema in models/Organization.js
+
+// Add these fields to your schema:
+
+hasCSVUploaded: {
+  type: Boolean,
+  default: false,
+},
+
+studentsCSVUrl: {
+  type: String,
+  default: null,
+},
+
+teachersCSVUrl: {
+  type: String,
+  default: null,
+},
+
+totalStudents: {
+  type: Number,
+  default: 0,
+},
+
+totalTeachers: {
+  type: Number,
+  default: 0,
+},
+
+csvUploadedAt: {
+  type: Date,
+  default: null,
+},
 });
 
 module.exports = mongoose.model('Organization', organizationSchema);

@@ -17,7 +17,7 @@ connectDB();
 const authRoutes = require('./routes/auth.routes');
 
 // USE ROUTES
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', require('./routes/auth.routes'));
 
 // Health check route
 app.get('/api/health', (req, res) => {

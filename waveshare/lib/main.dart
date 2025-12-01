@@ -2,6 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'screens/landing_page.dart';
 import 'utils/constants.dart';
+import 'screens/organization_registration.dart';
+import 'screens/admin_login_screen.dart';
+import 'screens/csv_upload_screen.dart';
+import 'screens/admin_dashboard.dart';
+
 
 void main() {
   // Ensure Flutter is initialized
@@ -66,7 +71,15 @@ class MyApp extends StatelessWidget {
       // Home screen (Landing Page)
       home: const LandingPage(),
 
-      // You can add routes here later for navigation
+      // Add to your main.dart MaterialApp
+
+      routes: {
+        '/organization-registration': (context) => const OrganizationRegistration(),
+        '/admin-login': (context) => const AdminLoginScreen(),
+        '/csv-upload': (context) => const CSVUploadScreen(),
+        '/admin-dashboard': (context) => const AdminDashboard(),
+        // ... your other routes
+      },
       // routes: {
       //   '/landing': (context) => const LandingPage(),
       //   '/organization': (context) => const OrganizationPage(),

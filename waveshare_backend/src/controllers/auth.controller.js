@@ -523,36 +523,163 @@ exports.testS3 = async (req, res) => {
     });
   }
 };
+// Add these to your auth.controller.js
 
+// CSV Upload Handler
+
+
+// ✅ FIXED CSV UPLOAD - Handles both students and teachers properly
+// ✅ FIXED CSV UPLOAD - Handles both students and teachers properly
+exports.uploadCSV = [
+  upload.single('csvFile'),
+  async (req, res) => {
+    try {
+      const { orgId, csvType } = req.body;
+      const file = req.file;
+
+      console.log('📊 CSV Upload Request:');
+      console.log('  - orgId:', orgId);
+      console.log('  - csvType:', csvType);
+      console.log('  - File:', file?.originalname);
+      console.log('  - File size:', file?.size);
+
+      // Validation
+      if (!orgId || !csvType || !file) {
+        return res.status(400).json({
+          success: false,
+          message: 'Missing required fields (orgId, csvType, or file)',
+        });
+      }
+
+      if (csvType !== 'students' && csvType !== 'teachers') {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid CSV type. Must be "students" or "teachers"',
+        });
+      }
+
+      // Find organization
+      const org = await Organization.findOne({ orgId });
+      if (!org) {
+        return res.status(404).json({
+          success: false,
+          message: 'Organization not found',
+        });
+      }
+
+      console.log('✅ Organization found:', org.orgName);
+
+      // Generate S3 key with proper path
+      const timestamp = Date.now();
+      const fileName = `${orgId}_${csvType}_${timestamp}.csv`;
+      const s3Key = `csv/${csvType}/${fileName}`;
+
+      // Upload to S3 with proper parameters
+      const uploadParams = {
+        Bucket: process.env.S3_BUCKET_NAME,
+        Key: s3Key,
+        Body: file.buffer,
+        ContentType: 'text/csv',
+        ContentDisposition: 'inline',
+      };
+
+      console.log('📤 Uploading to S3...');
+      console.log('  - Bucket:', process.env.S3_BUCKET_NAME);
+      console.log('  - Key:', s3Key);
+      console.log('  - Size:', file.size, 'bytes');
+
+      const command = new PutObjectCommand(uploadParams);
+      await s3Client.send(command);
+
+      console.log('✅ S3 upload successful');
+
+      // Parse CSV to count members
+      const csvContent = file.buffer.toString('utf-8');
+      const lines = csvContent.split('\n').filter(line => line.trim());
+      const memberCount = Math.max(0, lines.length - 1); // Exclude header
+
+      console.log(`📊 Parsed: ${memberCount} ${csvType}`);
+
+      // Generate full S3 URL
+      const csvUrl = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${s3Key}`;
+
+      // Update organization based on type
+      if (csvType === 'students') {
+        org.studentsCSVUrl = csvUrl;
+        org.totalStudents = memberCount;
+        console.log('✅ Updated students:', memberCount);
+      } else {
+        org.teachersCSVUrl = csvUrl;
+        org.totalTeachers = memberCount;
+        console.log('✅ Updated teachers:', memberCount);
+      }
+
+      // Mark CSV as uploaded
+      org.hasCSVUploaded = true;
+      org.csvUploadedAt = new Date();
+      
+      await org.save();
+      console.log('✅ Database updated successfully');
+
+      return res.status(200).json({
+        success: true,
+        message: `${csvType} CSV uploaded successfully`,
+        memberCount: memberCount,
+        csvUrl: csvUrl,
+        totalStudents: org.totalStudents || 0,
+        totalTeachers: org.totalTeachers || 0,
+      });
+
+    } catch (error) {
+      console.error('❌ CSV upload error:', error);
+      console.error('Error details:', error.message);
+      console.error('Stack trace:', error.stack);
+      
+      return res.status(500).json({
+        success: false,
+        message: 'Upload failed: ' + error.message,
+        error: error.message,
+      });
+    }
+  },
+];
+
+// Updated Admin Login (checks CSV status)
+// ✅ COMPLETE ADMIN LOGIN - Checks verification, CSV status, returns all data
 exports.adminLogin = async (req, res) => {
   try {
-    const { adminId, password } = req.body;
+    const { email, password } = req.body;
 
-    console.log('🔑 Login:', { adminId });
+    console.log('🔑 Login attempt:', { email });
 
-    if (!adminId || !password) {
+    // Validation
+    if (!email || !password) {
       return res.status(400).json({
         success: false,
-        message: 'Admin ID and password required',
+        message: 'Email and password required',
       });
     }
 
-    const org = await Organization.findOne({ adminId });
+    // Find organization by adminEmail
+    const org = await Organization.findOne({ adminEmail: email });
 
     if (!org) {
       return res.status(404).json({
         success: false,
-        message: 'Admin ID not found',
+        message: 'Email not found',
       });
     }
 
+    // Check verification status
     if (org.verificationStatus !== 'fully_verified') {
       return res.status(403).json({
         success: false,
-        message: 'Complete registration first',
+        message: 'Please complete registration first',
+        verificationStatus: org.verificationStatus,
       });
     }
 
+    // Verify password
     if (org.adminPassword !== password) {
       return res.status(401).json({
         success: false,
@@ -560,27 +687,120 @@ exports.adminLogin = async (req, res) => {
       });
     }
 
-    console.log('✅ Login successful');
+    console.log('✅ Login successful for:', org.orgName);
 
-    res.json({
+    // Return complete org data with CSV status
+    return res.status(200).json({
       success: true,
       message: 'Login successful',
       org: {
         orgId: org.orgId,
         orgName: org.orgName,
         orgCode: org.orgCode,
+        orgType: org.orgType,
         adminId: org.adminId,
         adminName: org.adminName,
         adminEmail: org.adminEmail,
-        stats: org.stats,
+        adminPhone: org.adminPhone,
+        emailDomain: org.emailDomain,
+        
+        // CSV Upload Status
+        hasCSVUploaded: org.hasCSVUploaded || false,
+        totalStudents: org.totalStudents || 0,
+        totalTeachers: org.totalTeachers || 0,
+        studentsCSVUrl: org.studentsCSVUrl || null,
+        teachersCSVUrl: org.teachersCSVUrl || null,
+        csvUploadedAt: org.csvUploadedAt || null,
+        
+        // Document Status
+        documentUrl: org.documentUrl || null,
+        documentType: org.documentType || null,
+        verificationStatus: org.verificationStatus,
       },
     });
-
   } catch (error) {
     console.error('❌ Login error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
-      message: 'Server error',
+      message: 'Server error: ' + error.message,
     });
   }
 };
+
+
+// Add to auth.controller.js
+exports.testCSVUpload = async (req, res) => {
+  try {
+    console.log('🧪 Testing S3 connection...');
+    console.log('Bucket:', process.env.S3_BUCKET_NAME);
+    console.log('Region:', process.env.AWS_REGION);
+    console.log('Access Key ID:', process.env.AWS_ACCESS_KEY_ID ? 'SET' : 'NOT SET');
+    console.log('Secret Key:', process.env.AWS_SECRET_ACCESS_KEY ? 'SET' : 'NOT SET');
+
+    const testContent = 'unique_id,name,role\nTEST001,Test User,Student';
+    const fileName = `test_${Date.now()}.csv`;
+
+    const uploadParams = {
+      Bucket: process.env.S3_BUCKET_NAME,
+      Key: `csv/${fileName}`,
+      Body: Buffer.from(testContent),
+      ContentType: 'text/csv',
+    };
+
+    const command = new PutObjectCommand(uploadParams);
+    await s3Client.send(command);
+
+    const url = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/csv/${fileName}`;
+
+    res.json({
+      success: true,
+      message: 'Test CSV uploaded successfully!',
+      url: url,
+    });
+  } catch (error) {
+    console.error('Test failed:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      stack: error.stack,
+    });
+  }
+};
+
+// In auth.controller.js
+exports.testS3Connection = async (req, res) => {
+  try {
+    console.log('🧪 Testing S3...');
+    console.log('Bucket:', process.env.S3_BUCKET_NAME);
+    console.log('Region:', process.env.AWS_REGION);
+    
+    const testContent = 'name,email\nTest User,test@example.com';
+    const fileName = `test_${Date.now()}.csv`;
+    const s3Key = `csv/test/${fileName}`;
+
+    const uploadParams = {
+      Bucket: process.env.S3_BUCKET_NAME,
+      Key: s3Key,
+      Body: Buffer.from(testContent),
+      ContentType: 'text/csv',
+    };
+
+    const command = new PutObjectCommand(uploadParams);
+    await s3Client.send(command);
+
+    const url = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${s3Key}`;
+
+    res.json({
+      success: true,
+      message: 'S3 connection working!',
+      url: url,
+    });
+  } catch (error) {
+    console.error('❌ S3 Test failed:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
+  }
+};
+
