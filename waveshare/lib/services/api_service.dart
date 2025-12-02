@@ -6,7 +6,7 @@ import 'package:http_parser/http_parser.dart'; // For MediaType
 
 
 class ApiService {
-  static const String baseUrl = 'http://192.168.29.139:3000/api';
+  static const String baseUrl = 'http://10.166.122.21:3000/api';
   static const Duration timeout = Duration(seconds: 30);
 
   // ============================================================================

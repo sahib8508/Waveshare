@@ -6,7 +6,7 @@ import 'screens/organization_registration.dart';
 import 'screens/admin_login_screen.dart';
 import 'screens/csv_upload_screen.dart';
 import 'screens/admin_dashboard.dart';
-
+import 'package:waveshare/screens/received_files_screen.dart';
 
 void main() {
   // Ensure Flutter is initialized
@@ -78,6 +78,7 @@ class MyApp extends StatelessWidget {
         '/admin-login': (context) => const AdminLoginScreen(),
         '/csv-upload': (context) => const CSVUploadScreen(),
         '/admin-dashboard': (context) => const AdminDashboard(),
+        '/received-files': (context) => const ReceivedFilesScreen(),
         // ... your other routes
       },
       // routes: {

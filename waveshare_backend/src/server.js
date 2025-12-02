@@ -48,8 +48,7 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {  // ADD '0.0.0.0'
   console.log(`🚀 Server running on http://localhost:${PORT}`);
-  console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`📡 Test: http://localhost:${PORT}/api/health`);
+  console.log(`📱 Mobile access: http://192.168.29.139:${PORT}`); // Replace with YOUR IP
 });

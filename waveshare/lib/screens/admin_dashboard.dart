@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../utils/constants.dart';
-
+import 'admin_file_share_screen.dart';
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -206,13 +206,33 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     );
                   },
                 ),
+
                 _buildActionCard(
                   icon: Icons.upload_file,
                   label: 'Share File',
                   color: const Color(0xFFE3F2FD),
                   iconColor: AppConstants.primaryBlue,
                   onTap: () {
-                    _showComingSoon('File Sharing');
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => AdminFileShareScreen(
+                          orgId: orgId!,
+                          adminId: adminId!,
+                          orgName: orgName!,
+                          adminName: adminName!,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                _buildActionCard(
+                  icon: Icons.download,
+                  label: 'Received Files',
+                  color: const Color(0xFFE3F2FD),
+                  iconColor: AppConstants.primaryBlue,
+                  onTap: () {
+                    Navigator.pushNamed(context, '/received-files');
                   },
                 ),
                 _buildActionCard(
