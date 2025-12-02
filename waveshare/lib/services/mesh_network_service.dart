@@ -138,13 +138,10 @@ class MeshNetworkService {
     required String filePath,
     required String fileName,
     required List<String> targetUserIds,
+    Map<String, dynamic>? targetCriteria,  // ✅ ADD THIS
     required Function(double) onProgress,
   }) async {
     try {
-      print('📤 Sharing file: $fileName');
-      print('   Path: $filePath');
-      print('   Targets: ${targetUserIds.length}');
-
       File file = File(filePath);
       if (!await file.exists()) {
         throw Exception('File not found: $filePath');
@@ -152,8 +149,6 @@ class MeshNetworkService {
 
       Uint8List fileBytes = await file.readAsBytes();
       String fileId = DateTime.now().millisecondsSinceEpoch.toString();
-
-      print('   File size: ${fileBytes.length} bytes');
 
       Map<String, dynamic> metadata = {
         'fileId': fileId,
@@ -164,20 +159,17 @@ class MeshNetworkService {
         'senderType': _myUserType,
         'orgId': _myOrgId,
         'targetUsers': targetUserIds,
+        'targetCriteria': targetCriteria,  // ✅ ADD THIS
         'timestamp': DateTime.now().toIso8601String(),
       };
 
       await _saveSharedFile(fileId, fileBytes, metadata);
-      print('💾 File saved locally');
 
-      List<NearbyDevice> targetDevices = _nearbyDevices.where((device) {
-        return targetUserIds.contains('ALL') || targetUserIds.contains(device.userId);
-      }).toList();
-
-      print('📱 Found ${targetDevices.length} target devices nearby');
+      // Filter devices based on targetCriteria
+      List<NearbyDevice> targetDevices = _filterDevicesByTarget(targetCriteria);
 
       if (targetDevices.isEmpty) {
-        print('⚠️ No target devices nearby');
+        print('⚠️ No matching devices nearby');
         onProgress(1.0);
         return;
       }
@@ -188,20 +180,26 @@ class MeshNetworkService {
           await _sendFileToDevice(device, fileId, fileBytes, metadata);
           completed++;
           onProgress(completed / targetDevices.length);
-          print('✅ Sent to ${device.name} ($completed/${targetDevices.length})');
         } catch (e) {
           print('❌ Failed to send to ${device.name}: $e');
         }
       }
-
-      print('✅ File sharing complete!');
-      print('   Reached: $completed/${targetDevices.length} devices');
-
     } catch (e) {
       print('❌ Share error: $e');
       onError?.call('Share failed: $e');
       rethrow;
     }
+  }
+
+  List<NearbyDevice> _filterDevicesByTarget(Map<String, dynamic>? criteria) {
+    if (criteria == null || criteria['level'] == 'all') {
+      return _nearbyDevices;
+    }
+
+    // TODO: Filter based on criteria
+    // This requires storing user metadata in NearbyDevice
+    // For now, return all devices (you'll implement filtering after adding user metadata)
+    return _nearbyDevices;
   }
 
   Future<void> _sendFileToDevice(

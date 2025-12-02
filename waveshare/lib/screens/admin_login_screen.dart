@@ -46,18 +46,36 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
           print('   Teachers: ${org['totalTeachers']}');
 
           // Prepare data for navigation
+          // ✅ Prepare data for navigation with NEW hierarchy stats
+          // ✅ COMPLETE FIX: Pass ALL data including hierarchy
           final navigationArgs = {
             'orgId': org['orgId'],
             'orgCode': org['orgCode'],
             'adminId': org['adminId'],
             'orgName': org['orgName'],
             'adminName': org['adminName'],
-            'totalStudents': org['totalStudents'] ?? 0,
-            'totalTeachers': org['totalTeachers'] ?? 0,
+
+            // Hierarchy stats
             'hasCSVUploaded': org['hasCSVUploaded'] ?? false,
+            'totalMembers': org['totalMembers'] ?? 0,
+            'totalStudents': org['totalStudents'] ?? 0,
+            'totalFaculty': org['totalFaculty'] ?? 0,
+            'totalStaff': org['totalStaff'] ?? 0,
+
+            // ✅ CRITICAL: Pass full hierarchy object
+            'hierarchy': org['hierarchy'],
+
+            // Old fields for backward compatibility
+            'totalTeachers': org['totalTeachers'] ?? 0,
             'studentsCSVUrl': org['studentsCSVUrl'],
             'teachersCSVUrl': org['teachersCSVUrl'],
           };
+
+          print('📦 Navigation args prepared:');
+          print('   Has hierarchy: ${org['hierarchy'] != null}');
+          if (org['hierarchy'] != null) {
+            print('   Departments: ${org['hierarchy']['departments']?.length ?? 0}');
+          }
 
           // Check CSV upload status and navigate accordingly
           final hasCSV = org['hasCSVUploaded'] ?? false;

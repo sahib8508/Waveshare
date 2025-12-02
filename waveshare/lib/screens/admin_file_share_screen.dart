@@ -4,18 +4,21 @@ import 'package:file_picker/file_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../services/mesh_network_service.dart';
 import '../utils/constants.dart';
+import '../widgets/target_selector.dart';
 
 class AdminFileShareScreen extends StatefulWidget {
   final String orgId;
   final String adminId;
   final String orgName;
   final String adminName;
+  final Map<String, dynamic>? hierarchy;
 
   const AdminFileShareScreen({
     required this.orgId,
     required this.adminId,
     required this.orgName,
     required this.adminName,
+    this.hierarchy,
     super.key,
   });
 
@@ -28,10 +31,10 @@ class _AdminFileShareScreenState extends State<AdminFileShareScreen> {
 
   File? _selectedFile;
   String? _selectedFileName;
+  Map<String, dynamic>? _targetCriteria;
   int _nearbyDevices = 0;
   bool _isSharing = false;
   double _shareProgress = 0.0;
-  List<Map<String, dynamic>> _sharedFiles = [];
   String _statusMessage = 'Initializing...';
 
   @override
@@ -44,21 +47,14 @@ class _AdminFileShareScreenState extends State<AdminFileShareScreen> {
     try {
       setState(() => _statusMessage = 'Requesting permissions...');
 
-      // Request all necessary permissions
-      Map<Permission, PermissionStatus> statuses = await [
+      await [
         Permission.location,
         Permission.locationWhenInUse,
         Permission.nearbyWifiDevices,
       ].request();
 
-      print('📋 Permission statuses:');
-      statuses.forEach((permission, status) {
-        print('   $permission: $status');
-      });
-
       setState(() => _statusMessage = 'Initializing mesh network...');
 
-      // Initialize mesh service with admin name
       await _mesh.initialize(
         widget.orgId,
         widget.adminId,
@@ -66,61 +62,28 @@ class _AdminFileShareScreenState extends State<AdminFileShareScreen> {
         name: widget.adminName,
       );
 
-      // Set callbacks
       _mesh.onDevicesFound = (devices) {
         setState(() {
           _nearbyDevices = devices.length;
           _statusMessage = 'Found $_nearbyDevices devices';
         });
-        print('📱 Devices found: $_nearbyDevices');
       };
 
       _mesh.onError = (error) {
-        print('❌ Mesh error: $error');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: $error'), backgroundColor: Colors.red),
         );
       };
 
-      setState(() => _statusMessage = 'Starting discovery...');
-
-      // Start advertising this device
       await _mesh.startAdvertising();
-
-      // Start scanning for other devices
       await _mesh.startScanning();
 
       setState(() => _statusMessage = 'Ready to share!');
-
-      // Load previously shared files
-      _loadSharedFiles();
-
-      print('✅ Mesh network ready');
-      print('   Organization: ${widget.orgName}');
-      print('   Admin: ${widget.adminName}');
-
     } catch (e) {
-      print('❌ Mesh initialization error: $e');
       setState(() => _statusMessage = 'Error: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Initialization failed: $e'),
-          backgroundColor: Colors.red,
-          duration: Duration(seconds: 5),
-        ),
+        SnackBar(content: Text('Initialization failed: $e'), backgroundColor: Colors.red),
       );
-    }
-  }
-
-  Future<void> _loadSharedFiles() async {
-    try {
-      List<Map<String, dynamic>> files = await _mesh.getSharedFiles();
-      setState(() {
-        _sharedFiles = files;
-      });
-      print('📚 Loaded ${files.length} shared files');
-    } catch (e) {
-      print('❌ Error loading files: $e');
     }
   }
 
@@ -133,10 +96,8 @@ class _AdminFileShareScreenState extends State<AdminFileShareScreen> {
           _selectedFile = File(result.files.single.path!);
           _selectedFileName = result.files.single.name;
         });
-        print('📄 File selected: $_selectedFileName');
       }
     } catch (e) {
-      print('❌ File picker error: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('File selection failed: $e')),
       );
@@ -151,12 +112,9 @@ class _AdminFileShareScreenState extends State<AdminFileShareScreen> {
       return;
     }
 
-    if (_nearbyDevices == 0) {
+    if (_targetCriteria == null || _targetCriteria!['totalRecipients'] == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('No nearby devices found. Make sure other devices are on same WiFi.'),
-          backgroundColor: Colors.orange,
-        ),
+        SnackBar(content: Text('Please select recipients')),
       );
       return;
     }
@@ -168,18 +126,14 @@ class _AdminFileShareScreenState extends State<AdminFileShareScreen> {
     });
 
     try {
-      print('🚀 Starting file share...');
-      print('   File: $_selectedFileName');
-      print('   Path: ${_selectedFile!.path}');
-      print('   Target devices: $_nearbyDevices');
-
-      // Share to ALL organization members
-      List<String> targetUsers = ['ALL'];
+      // Build target users list (simplified - you'll match against CSV data)
+      List<String> targetUsers = ['ALL']; // Replace with actual filtering logic
 
       await _mesh.shareFile(
         filePath: _selectedFile!.path,
         fileName: _selectedFileName!,
         targetUserIds: targetUsers,
+        targetCriteria: _targetCriteria!,
         onProgress: (progress) {
           setState(() {
             _shareProgress = progress;
@@ -190,15 +144,11 @@ class _AdminFileShareScreenState extends State<AdminFileShareScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('✅ File shared to $_nearbyDevices devices'),
+          content: Text('✅ File shared to ${_targetCriteria!['totalRecipients']} recipients'),
           backgroundColor: Colors.green,
         ),
       );
 
-      // Reload files list
-      await _loadSharedFiles();
-
-      // Reset
       setState(() {
         _selectedFile = null;
         _selectedFileName = null;
@@ -206,16 +156,9 @@ class _AdminFileShareScreenState extends State<AdminFileShareScreen> {
         _shareProgress = 0.0;
         _statusMessage = 'Ready to share!';
       });
-
-      print('✅ Share complete!');
-
     } catch (e) {
-      print('❌ Share error: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('❌ Share failed: $e'),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text('❌ Share failed: $e'), backgroundColor: Colors.red),
       );
       setState(() {
         _isSharing = false;
@@ -238,7 +181,7 @@ class _AdminFileShareScreenState extends State<AdminFileShareScreen> {
         title: Text('Share File'),
         backgroundColor: AppConstants.primaryBlue,
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -260,23 +203,17 @@ class _AdminFileShareScreenState extends State<AdminFileShareScreen> {
                   SizedBox(height: 8),
                   Text(
                     _statusMessage,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     textAlign: TextAlign.center,
                   ),
                   SizedBox(height: 4),
-                  Text(
-                    'Nearby Devices: $_nearbyDevices',
-                    style: TextStyle(fontSize: 14),
-                  ),
+                  Text('Nearby Devices: $_nearbyDevices'),
                 ],
               ),
             ),
             SizedBox(height: 24),
 
-            // File Selection Button
+            // File Selection
             ElevatedButton.icon(
               onPressed: _isSharing ? null : _pickFile,
               icon: Icon(Icons.attach_file),
@@ -322,6 +259,16 @@ class _AdminFileShareScreenState extends State<AdminFileShareScreen> {
 
             SizedBox(height: 24),
 
+            // Target Selector
+            TargetSelector(
+              hierarchy: widget.hierarchy,
+              onTargetSelected: (criteria) {
+                setState(() => _targetCriteria = criteria);
+              },
+            ),
+
+            SizedBox(height: 24),
+
             // Share Button
             ElevatedButton(
               onPressed: _isSharing ? null : _shareFile,
@@ -333,61 +280,17 @@ class _AdminFileShareScreenState extends State<AdminFileShareScreen> {
                   ? SizedBox(
                 height: 20,
                 width: 20,
-                child: CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 2,
-                ),
+                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
               )
-                  : Text(
-                'Share to All Members',
-                style: TextStyle(fontSize: 16, color: Colors.white),
-              ),
+                  : Text('Share File', style: TextStyle(fontSize: 16, color: Colors.white)),
             ),
 
             if (_isSharing) ...[
               SizedBox(height: 16),
               LinearProgressIndicator(value: _shareProgress),
               SizedBox(height: 8),
-              Text(
-                '${(_shareProgress * 100).toInt()}% Complete',
-                textAlign: TextAlign.center,
-              ),
+              Text('${(_shareProgress * 100).toInt()}% Complete', textAlign: TextAlign.center),
             ],
-
-            SizedBox(height: 32),
-
-            // Previously Shared Files
-            Text(
-              'Previously Shared Files',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            SizedBox(height: 12),
-            Expanded(
-              child: _sharedFiles.isEmpty
-                  ? Center(child: Text('No files shared yet'))
-                  : ListView.builder(
-                itemCount: _sharedFiles.length,
-                itemBuilder: (context, index) {
-                  var file = _sharedFiles[index];
-                  return Card(
-                    child: ListTile(
-                      leading: Icon(
-                        Icons.description,
-                        color: AppConstants.primaryBlue,
-                      ),
-                      title: Text(file['fileName'] ?? 'Unknown'),
-                      subtitle: Text(
-                        'Shared: ${file['timestamp']?.toString().substring(0, 16) ?? 'Unknown'}',
-                      ),
-                      trailing: Icon(Icons.check_circle, color: Colors.green),
-                    ),
-                  );
-                },
-              ),
-            ),
           ],
         ),
       ),

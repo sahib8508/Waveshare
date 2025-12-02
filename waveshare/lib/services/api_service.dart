@@ -394,6 +394,9 @@ class ApiService {
 
 // Updated Admin Login (checks CSV status)
   // ✅ FIXED: Admin Login with correct endpoint
+  // lib/services/api_service.dart
+// FIND adminLogin and REPLACE:
+
   static Future<Map<String, dynamic>> adminLogin({
     required String email,
     required String password,
@@ -401,10 +404,9 @@ class ApiService {
     try {
       print('🔑 Attempting login...');
       print('   Email: $email');
-      print('   Endpoint: $baseUrl/auth/admin-login');
 
       final response = await http.post(
-        Uri.parse('$baseUrl/auth/admin-login'), // ✅ FIXED: Added /auth
+        Uri.parse('$baseUrl/auth/admin-login'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'email': email,
@@ -412,9 +414,6 @@ class ApiService {
         }),
       ).timeout(
         const Duration(seconds: 10),
-        onTimeout: () {
-          throw Exception('Request timeout - please check your connection');
-        },
       );
 
       print('📥 Login response: ${response.statusCode}');
@@ -424,8 +423,12 @@ class ApiService {
 
       if (response.statusCode == 200 && data['success'] == true) {
         print('✅ Login successful');
-        print('   Org: ${data['org']['orgName']}');
-        print('   CSV Status: ${data['org']['hasCSVUploaded']}');
+        print('📊 Org data received:');
+        print('   Total Members: ${data['org']['totalMembers']}');
+        print('   Total Students: ${data['org']['totalStudents']}');
+        print('   Total Faculty: ${data['org']['totalFaculty']}');
+        print('   CSV Uploaded: ${data['org']['hasCSVUploaded']}');
+
         return data;
       } else if (response.statusCode == 403) {
         throw Exception(data['message'] ?? 'Registration not complete');
@@ -441,4 +444,74 @@ class ApiService {
       rethrow;
     }
   }
+// ADD THIS NEW METHOD (place after other CSV upload methods):
+
+  static Future<Map<String, dynamic>> uploadMembersCSV({
+    required String orgId,
+    required PlatformFile file,
+  }) async {
+    try {
+      print('📤 Uploading members CSV...');
+      print('   OrgId: $orgId');
+      print('   File: ${file.name}');
+
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$baseUrl/auth/upload-csv'),
+      );
+
+      request.fields['orgId'] = orgId;
+
+      // Handle both web (bytes) and mobile (path)
+      if (file.bytes != null) {
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'csvFile',
+            file.bytes!,
+            filename: file.name,
+            contentType: MediaType('text', 'csv'),
+          ),
+        );
+      } else if (file.path != null) {
+        var fileStream = http.ByteStream(File(file.path!).openRead());
+        var length = await File(file.path!).length();
+        request.files.add(
+          http.MultipartFile(
+            'csvFile',
+            fileStream,
+            length,
+            filename: file.name,
+            contentType: MediaType('text', 'csv'),
+          ),
+        );
+      } else {
+        throw Exception('File has no data');
+      }
+
+      print('🚀 Sending request...');
+
+      var streamedResponse = await request.send().timeout(
+        const Duration(seconds: 30),
+      );
+
+      var response = await http.Response.fromStream(streamedResponse);
+
+      print('📥 Response: ${response.statusCode}');
+      print('📥 Body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        print('✅ Upload successful');
+        return data;
+      } else {
+        final error = json.decode(response.body);
+        throw Exception(error['message'] ?? 'Upload failed');
+      }
+    } catch (e) {
+      print('❌ Upload error: $e');
+      rethrow;
+    }
+  }
+
 }
+

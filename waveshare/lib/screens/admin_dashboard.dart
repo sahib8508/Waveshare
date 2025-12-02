@@ -16,52 +16,57 @@ class _AdminDashboardState extends State<AdminDashboard> {
   String? orgId;
   String? adminId;
 
-  // ✅ Real data from backend
+  // Stats from hierarchy
+  int totalMembers = 0;
   int totalStudents = 0;
-  int totalTeachers = 0;
+  int totalFaculty = 0;
+  int totalStaff = 0;
   bool hasCSVUploaded = false;
-  bool _isLoading = true;
+
+  // ✅ FIX: Declare fullHierarchy variable
+  Map<String, dynamic>? fullHierarchy;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+
     if (args != null) {
+      print('📥 Dashboard received args: $args');
+
       orgName = args['orgName'] ?? 'Organization';
       adminName = args['adminName'] ?? 'Admin';
       orgCode = args['orgCode'];
       orgId = args['orgId'];
       adminId = args['adminId'];
 
-      // ✅ Load real data
-      _loadDashboardData();
-    }
-  }
+      totalMembers = args['totalMembers'] ?? 0;
+      totalStudents = args['totalStudents'] ?? 0;
+      totalFaculty = args['totalFaculty'] ?? 0;
+      totalStaff = args['totalStaff'] ?? 0;
+      hasCSVUploaded = args['hasCSVUploaded'] ?? false;
 
-  // ✅ Fetch real data from backend
-  Future<void> _loadDashboardData() async {
-    try {
-      // TODO: Create API endpoint to get org stats
-      // For now, we'll use data passed from login
-      setState(() {
-        _isLoading = false;
-      });
-    } catch (e) {
-      print('Error loading dashboard: $e');
-      setState(() {
-        _isLoading = false;
-      });
+      // ✅ GET HIERARCHY
+      fullHierarchy = args['hierarchy'] as Map<String, dynamic>?;
+
+      // ✅ DEBUG PRINTS
+      print('📊 Stats loaded:');
+      print('   Total Members: $totalMembers');
+      print('   Total Students: $totalStudents');
+      print('   Total Faculty: $totalFaculty');
+      print('   CSV Uploaded: $hasCSVUploaded');
+      print('   ✅ Has Hierarchy: ${fullHierarchy != null}');
+      if (fullHierarchy != null) {
+        print('   ✅ Departments: ${fullHierarchy!['departments']?.length ?? 0}');
+        print('   ✅ Total in hierarchy: ${fullHierarchy!['totalMembers']}');
+      } else {
+        print('   ❌ Hierarchy is NULL!');
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-
     return Scaffold(
       backgroundColor: AppConstants.backgroundColor,
       appBar: AppBar(
@@ -89,8 +94,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
             child: CircleAvatar(
               backgroundColor: AppConstants.primaryBlue,
               child: Text(
-                adminName?[0].toUpperCase() ?? 'A',
-                style: const TextStyle(color: Colors.white),
+                (adminName?.isNotEmpty == true)
+                    ? adminName![0].toUpperCase()
+                    : 'A',
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
               ),
             ),
           ),
@@ -101,7 +108,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ✅ Organization Info
+            // Organization Info
             Text(
               orgName ?? 'Organization',
               style: const TextStyle(
@@ -109,6 +116,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 fontWeight: FontWeight.bold,
               ),
             ),
+            const SizedBox(height: 4),
             Text(
               adminName ?? 'Admin',
               style: TextStyle(
@@ -116,7 +124,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 color: Colors.grey[600],
               ),
             ),
-            if (orgCode != null)
+            if (orgCode != null) ...[
+              const SizedBox(height: 4),
               Text(
                 'Code: $orgCode',
                 style: const TextStyle(
@@ -125,6 +134,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   fontWeight: FontWeight.w600,
                 ),
               ),
+            ],
             const SizedBox(height: 24),
 
             // ✅ REAL Stats Card
@@ -142,12 +152,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       _buildStatItem(
-                        '👨‍🎓 $totalStudents',
-                        'Total Students',
+                        '👥 $totalMembers',
+                        'Total Members',
                       ),
                       _buildStatItem(
-                        '👨‍🏫 $totalTeachers',
-                        'Total Teachers',
+                        '👨‍🎓 $totalStudents',
+                        'Students',
                       ),
                     ],
                   ),
@@ -156,12 +166,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       _buildStatItem(
-                        hasCSVUploaded ? '✅ Uploaded' : '⚠️ Not Uploaded',
-                        'CSV Status',
+                        '👨‍🏫 $totalFaculty',
+                        'Faculty',
                       ),
                       _buildStatItem(
-                        '📱 Online',
-                        'System Active',
+                        hasCSVUploaded ? '✅ Uploaded' : '⚠️ Not Uploaded',
+                        'CSV Status',
                       ),
                     ],
                   ),
@@ -179,7 +189,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
             ),
             const SizedBox(height: 16),
 
-            // ✅ Working Actions Grid
+            // Actions Grid with all buttons
             GridView.count(
               crossAxisCount: 2,
               shrinkWrap: true,
@@ -206,24 +216,27 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     );
                   },
                 ),
-
                 _buildActionCard(
                   icon: Icons.upload_file,
                   label: 'Share File',
                   color: const Color(0xFFE3F2FD),
                   iconColor: AppConstants.primaryBlue,
                   onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => AdminFileShareScreen(
-                          orgId: orgId!,
-                          adminId: adminId!,
-                          orgName: orgName!,
-                          adminName: adminName!,
+                    if (orgId != null && adminId != null) {
+                      // ✅ FIX: Pass full hierarchy correctly
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => AdminFileShareScreen(
+                            orgId: orgId!,
+                            adminId: adminId!,
+                            orgName: orgName ?? 'Organization',
+                            adminName: adminName ?? 'Admin',
+                            hierarchy: fullHierarchy,
+                          ),
                         ),
-                      ),
-                    );
+                      );
+                    }
                   },
                 ),
                 _buildActionCard(
@@ -254,6 +267,15 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   },
                 ),
                 _buildActionCard(
+                  icon: Icons.people,
+                  label: 'View Members',
+                  color: const Color(0xFFE3F2FD),
+                  iconColor: AppConstants.primaryBlue,
+                  onTap: () {
+                    _showComingSoon('Members List');
+                  },
+                ),
+                _buildActionCard(
                   icon: Icons.stop_circle,
                   label: 'Content Moderation',
                   color: const Color(0xFFE3F2FD),
@@ -276,6 +298,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ],
         ),
       ),
+      // ✅ Bottom Navigation Bar
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: 0,
         type: BottomNavigationBarType.fixed,
@@ -308,15 +331,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
-  void _showComingSoon(String feature) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$feature - Coming Soon'),
-        backgroundColor: AppConstants.primaryBlue,
-      ),
-    );
-  }
-
   Widget _buildStatItem(String title, String subtitle) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -329,6 +343,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
             fontWeight: FontWeight.bold,
           ),
         ),
+        const SizedBox(height: 4),
         Text(
           subtitle,
           style: const TextStyle(
@@ -370,6 +385,15 @@ class _AdminDashboardState extends State<AdminDashboard> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showComingSoon(String feature) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$feature - Coming Soon'),
+        backgroundColor: AppConstants.primaryBlue,
       ),
     );
   }

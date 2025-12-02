@@ -11,8 +11,7 @@ class CSVUploadScreen extends StatefulWidget {
 }
 
 class _CSVUploadScreenState extends State<CSVUploadScreen> {
-  PlatformFile? _studentsFile;
-  PlatformFile? _teachersFile;
+  PlatformFile? _csvFile;
   bool _isUploading = false;
   double _uploadProgress = 0;
 
@@ -33,21 +32,17 @@ class _CSVUploadScreenState extends State<CSVUploadScreen> {
     }
   }
 
-  Future<void> _pickFile(String type) async {
+  Future<void> _pickFile() async {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['csv'],
-        withData: true,  // ADD THIS LINE
+        withData: true,
       );
 
       if (result != null) {
         setState(() {
-          if (type == 'students') {
-            _studentsFile = result.files.first;
-          } else {
-            _teachersFile = result.files.first;
-          }
+          _csvFile = result.files.first;
         });
       }
     } catch (e) {
@@ -56,8 +51,8 @@ class _CSVUploadScreenState extends State<CSVUploadScreen> {
   }
 
   Future<void> _uploadCSV() async {
-    if (_studentsFile == null && _teachersFile == null) {
-      _showError('Please select at least one CSV file');
+    if (_csvFile == null) {
+      _showError('Please select a CSV file');
       return;
     }
 
@@ -67,60 +62,22 @@ class _CSVUploadScreenState extends State<CSVUploadScreen> {
     });
 
     try {
-      int totalUploads = 0;
-      if (_studentsFile != null) totalUploads++;
-      if (_teachersFile != null) totalUploads++;
+      print('📤 Uploading members CSV...');
 
-      double progressStep = 1.0 / totalUploads;
-      double currentProgress = 0;
-
-      // ✅ Upload students CSV
-      if (_studentsFile != null) {
-        print('📤 Uploading students CSV...');
-        print('   File name: ${_studentsFile!.name}');
-        print('   File size: ${_studentsFile!.size}');
-        print('   Has bytes: ${_studentsFile!.bytes != null}');
-        print('   Has path: ${_studentsFile!.path != null}');
-
-        await ApiService.uploadCSV(
-          orgId: orgId!,
-          csvType: 'students',
-          file: _studentsFile!,
-        );
-        currentProgress += progressStep;
-        setState(() => _uploadProgress = currentProgress);
-        print('✅ Students CSV uploaded');
-      }
-
-      // ✅ Upload teachers CSV
-      if (_teachersFile != null) {
-        print('📤 Uploading teachers CSV...');
-        print('   File name: ${_teachersFile!.name}');
-        print('   File size: ${_teachersFile!.size}');
-        print('   Has bytes: ${_teachersFile!.bytes != null}');
-        print('   Has path: ${_teachersFile!.path != null}');
-
-        await ApiService.uploadCSV(
-          orgId: orgId!,
-          csvType: 'teachers',
-          file: _teachersFile!,
-        );
-        currentProgress += progressStep;
-        setState(() => _uploadProgress = currentProgress);
-        print('✅ Teachers CSV uploaded');
-      }
+      await ApiService.uploadMembersCSV(
+        orgId: orgId!,
+        file: _csvFile!,
+      );
 
       setState(() => _uploadProgress = 1.0);
 
-      // ✅ Show success message
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('CSV files uploaded successfully!'),
+          content: Text('✅ Members uploaded and hierarchy created!'),
           backgroundColor: Colors.green,
         ),
       );
 
-      // Navigate to dashboard
       await Future.delayed(const Duration(seconds: 1));
       if (mounted) {
         Navigator.pushReplacementNamed(
@@ -131,7 +88,6 @@ class _CSVUploadScreenState extends State<CSVUploadScreen> {
             'orgCode': orgCode,
             'adminId': adminId,
             'orgName': orgName,
-            'adminName': 'Admin',
           },
         );
       }
@@ -142,87 +98,95 @@ class _CSVUploadScreenState extends State<CSVUploadScreen> {
     }
   }
 
-  void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppConstants.backgroundColor,
       appBar: AppBar(
-        title: const Text('Setup Your Organization'),
+        title: const Text('Upload Members'),
         backgroundColor: AppConstants.white,
         automaticallyImplyLeading: false,
       ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(AppConstants.paddingLarge),
+          padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Text(
-                'Step 1 of 3: Upload Member Database',
-                style: AppConstants.bodyMedium,
+                'Upload Single CSV File',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
 
               const Text(
-                'Upload CSV Files',
-                style: AppConstants.headingLarge,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-
-              const Text(
-                'Get started by uploading your member list',
-                style: AppConstants.caption,
+                'Include all members (students, faculty, staff) in one CSV',
+                style: TextStyle(fontSize: 14, color: Colors.grey),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 32),
 
-              // Students CSV
-              _buildFileCard(
-                title: 'Students CSV',
-                file: _studentsFile,
-                onTap: () => _pickFile('students'),
-                icon: Icons.school,
-              ),
-              const SizedBox(height: 16),
-
-              // Teachers/Staff CSV
-              _buildFileCard(
-                title: 'Teachers/Staff CSV',
-                file: _teachersFile,
-                onTap: () => _pickFile('teachers'),
-                icon: Icons.person,
-              ),
-              const SizedBox(height: 32),
-
-              if (_isUploading)
-                Column(
-                  children: [
-                    LinearProgressIndicator(
-                      value: _uploadProgress,
-                      backgroundColor: Colors.grey[300],
-                      valueColor: const AlwaysStoppedAnimation<Color>(
-                        AppConstants.primaryBlue,
+              // File Picker
+              InkWell(
+                onTap: _pickFile,
+                child: Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: AppConstants.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: _csvFile != null ? Colors.green : AppConstants.primaryBlue,
+                      width: 2,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.people,
+                        color: _csvFile != null ? Colors.green : AppConstants.primaryBlue,
+                        size: 32,
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '${(_uploadProgress * 100).toInt()}% Complete',
-                      style: AppConstants.caption,
-                    ),
-                    const SizedBox(height: 16),
-                  ],
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Members CSV File',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              _csvFile != null ? _csvFile!.name : 'No file selected',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: _csvFile != null ? Colors.green : Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(
+                        _csvFile != null ? Icons.check_circle : Icons.upload_file,
+                        color: _csvFile != null ? Colors.green : AppConstants.primaryBlue,
+                      ),
+                    ],
+                  ),
                 ),
+              ),
+              const SizedBox(height: 32),
+
+              if (_isUploading) ...[
+                LinearProgressIndicator(value: _uploadProgress),
+                const SizedBox(height: 8),
+                Text(
+                  '${(_uploadProgress * 100).toInt()}% Complete',
+                  style: const TextStyle(fontSize: 14, color: Colors.grey),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+              ],
 
               ElevatedButton(
                 onPressed: _isUploading ? null : _uploadCSV,
@@ -233,12 +197,8 @@ class _CSVUploadScreenState extends State<CSVUploadScreen> {
                 child: _isUploading
                     ? const CircularProgressIndicator(color: Colors.white)
                     : const Text(
-                  'Upload & Continue',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  'Upload & Create Hierarchy',
+                  style: TextStyle(color: Colors.white, fontSize: 16),
                 ),
               ),
               const SizedBox(height: 16),
@@ -265,61 +225,9 @@ class _CSVUploadScreenState extends State<CSVUploadScreen> {
     );
   }
 
-  Widget _buildFileCard({
-    required String title,
-    required PlatformFile? file,
-    required VoidCallback onTap,
-    required IconData icon,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppConstants.white,
-          borderRadius: BorderRadius.circular(AppConstants.borderRadiusMedium),
-          border: Border.all(
-            color: file != null ? Colors.green : AppConstants.primaryBlue,
-            width: 2,
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              color: file != null ? Colors.green : AppConstants.primaryBlue,
-              size: 32,
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    file != null ? file.name : 'No file selected',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: file != null ? Colors.green : Colors.grey,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              file != null ? Icons.check_circle : Icons.upload_file,
-              color: file != null ? Colors.green : AppConstants.primaryBlue,
-            ),
-          ],
-        ),
-      ),
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red),
     );
   }
 }
