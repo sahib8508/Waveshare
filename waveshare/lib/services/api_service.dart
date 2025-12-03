@@ -3,10 +3,11 @@ import 'package:http/http.dart' as http;
 import 'package:file_picker/file_picker.dart';
 import 'dart:io'; // For File class
 import 'package:http_parser/http_parser.dart'; // For MediaType
+import 'package:shared_preferences/shared_preferences.dart';
 
 
 class ApiService {
-  static const String baseUrl = 'http://10.166.122.21:3000/api';
+  static const String baseUrl = 'http://192.168.29.24:3000/api';
   static const Duration timeout = Duration(seconds: 30);
 
   // ============================================================================
@@ -412,22 +413,17 @@ class ApiService {
           'email': email,
           'password': password,
         }),
-      ).timeout(
-        const Duration(seconds: 10),
-      );
+      ).timeout(const Duration(seconds: 10));
 
       print('📥 Login response: ${response.statusCode}');
-      print('📥 Body: ${response.body}');
-
       final data = json.decode(response.body);
 
       if (response.statusCode == 200 && data['success'] == true) {
         print('✅ Login successful');
-        print('📊 Org data received:');
-        print('   Total Members: ${data['org']['totalMembers']}');
-        print('   Total Students: ${data['org']['totalStudents']}');
-        print('   Total Faculty: ${data['org']['totalFaculty']}');
-        print('   CSV Uploaded: ${data['org']['hasCSVUploaded']}');
+
+        // ✅ NEW: Auto-download CSV for offline validation
+        String orgId = data['org']['orgId'];
+        await downloadCSVForOfflineValidation(orgId: orgId);
 
         return data;
       } else if (response.statusCode == 403) {
@@ -442,6 +438,34 @@ class ApiService {
     } catch (e) {
       print('❌ Login error: $e');
       rethrow;
+    }
+  }
+
+// ✅ NEW: Private method to download and cache CSV
+  static Future<void> downloadCSVForOfflineValidation({
+    required String orgId,
+  }) async {
+    try {
+      print('📥 Downloading CSV for offline validation...');
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/auth/get-members-csv/$orgId'),
+      ).timeout(timeout);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+
+        SharedPreferences prefs = await SharedPreferences.getInstance();
+        await prefs.setString('offline_csv_$orgId', json.encode(data['members']));
+        await prefs.setString('offline_org_$orgId', json.encode(data['org']));
+
+        print('✅ CSV cached for offline validation');
+      } else {
+        print('⚠️ CSV download failed: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('⚠️ Could not download CSV (non-critical): $e');
+      // Don't throw - allow login to continue even if CSV download fails
     }
   }
 // ADD THIS NEW METHOD (place after other CSV upload methods):
@@ -512,6 +536,70 @@ class ApiService {
       rethrow;
     }
   }
+// Add offline validation method
+  static Future<Map<String, dynamic>?> validateMemberOffline({
+    required String orgId,
+    required String uniqueId,
+    required String email,
+    required String phone,
+  }) async {
+    try {
+      print('🔍 Offline validation starting...');
+      print('   OrgId: $orgId');
+      print('   UniqueId: $uniqueId');
+
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? csvData = prefs.getString('offline_csv_$orgId');
+
+      if (csvData == null) {
+        print('❌ No offline data found for orgId: $orgId');
+
+        // List all stored keys for debugging
+        Set<String> keys = prefs.getKeys();
+        print('📦 Available keys: ${keys.where((k) => k.contains('offline'))}');
+
+        throw Exception('No offline data available. Please connect to internet first.');
+      }
+
+      print('✅ CSV data found, parsing...');
+      List<dynamic> members = json.decode(csvData);
+      print('📊 Total members in CSV: ${members.length}');
+
+      // Find matching member
+      var member = members.firstWhere(
+            (m) {
+          bool idMatch = m['unique_id']?.toString().trim() == uniqueId.trim();
+          bool emailMatch = m['email']?.toString().trim().toLowerCase() == email.trim().toLowerCase();
+          bool phoneMatch = m['phone']?.toString().trim() == phone.trim();
+
+          print('   Checking: ${m['unique_id']} | ID=$idMatch, Email=$emailMatch, Phone=$phoneMatch');
+
+          return idMatch && emailMatch && phoneMatch;
+        },
+        orElse: () => null,
+      );
+
+      if (member != null) {
+        print('✅ Member found: ${member['name']}');
+
+        // Save additional user data for mesh network
+        await prefs.setString('user_department', member['department'] ?? '');
+        await prefs.setString('user_branch', member['branch'] ?? '');
+        await prefs.setString('user_year', member['year']?.toString() ?? '');
+        await prefs.setString('user_semester', member['semester']?.toString() ?? '');
+        await prefs.setString('user_section', member['section'] ?? '');
+
+        return Map<String, dynamic>.from(member);
+      } else {
+        print('❌ No matching member found');
+        return null;
+      }
+    } catch (e) {
+      print('❌ Offline validation error: $e');
+      rethrow;
+    }
+  }
+
 
 }
 

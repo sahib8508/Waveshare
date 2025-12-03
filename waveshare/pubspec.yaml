@@ -4,7 +4,7 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.9.2
+  sdk: '>=3.5.0 <4.0.0'  # ✅ CHANGED: Enable newer Dart features
 
 dependencies:
   flutter:
@@ -22,7 +22,9 @@ dependencies:
   flutter_blue_plus: ^1.31.5
   permission_handler: ^11.0.1
   network_info_plus: ^5.0.3
-  open_file: ^3.3.2  # ADD THIS
+  open_file: ^3.5.10
+  share_plus: ^10.1.4
+  cross_file: ^0.3.4+2  # ✅ ADD THIS (for XFile)
 
 dev_dependencies:
   flutter_test:

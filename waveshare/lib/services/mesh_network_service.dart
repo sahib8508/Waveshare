@@ -192,14 +192,52 @@ class MeshNetworkService {
   }
 
   List<NearbyDevice> _filterDevicesByTarget(Map<String, dynamic>? criteria) {
-    if (criteria == null || criteria['level'] == 'all') {
+    // ✅ FIX: Universal share = NO FILTERS
+    if (criteria == null || criteria['level'] == 'universal' || criteria['level'] == 'all') {
+      print('🎯 Target: ALL devices (Universal/Organization-wide)');
       return _nearbyDevices;
     }
 
-    // TODO: Filter based on criteria
-    // This requires storing user metadata in NearbyDevice
-    // For now, return all devices (you'll implement filtering after adding user metadata)
-    return _nearbyDevices;
+    print('🎯 Filtering by: ${criteria['level']}');
+    print('   Department: ${criteria['department']}');
+
+    List<NearbyDevice> filtered = _nearbyDevices.where((device) {
+      // Must be in same organization
+      if (device.orgId != _myOrgId) return false;
+
+      // Must be a student (supervisors share to students only)
+      if (device.userType != 'student') return false;
+
+      // Match department
+      if (criteria['department'] != null && device.department != criteria['department']) {
+        return false;
+      }
+
+      // Match branch if specified
+      if (criteria['branch'] != null && device.branch != criteria['branch']) {
+        return false;
+      }
+
+      // Match year if specified
+      if (criteria['year'] != null && device.year != criteria['year']) {
+        return false;
+      }
+
+      // Match semester if specified
+      if (criteria['semester'] != null && device.semester != criteria['semester']) {
+        return false;
+      }
+
+      // Match section if specified
+      if (criteria['section'] != null && device.section != criteria['section']) {
+        return false;
+      }
+
+      return true;
+    }).toList();
+
+    print('✅ Filtered: ${filtered.length} devices match criteria');
+    return filtered;
   }
 
   Future<void> _sendFileToDevice(
@@ -295,6 +333,7 @@ class MeshNetworkService {
     try {
       print('🔍 Processing: $message from $ipAddress');
 
+      // Format: WAVESHARE:orgId:userId:userType:userName:dept:branch:year:sem:section
       List<String> parts = message.split(':');
       if (parts.length < 5) {
         print('⚠️ Invalid message format');
@@ -304,23 +343,16 @@ class MeshNetworkService {
       String orgId = parts[1];
       String userId = parts[2];
       String userType = parts[3];
-      String userName = parts.sublist(4).join(':');
+      String userName = parts[4];
+      String? dept = parts.length > 5 ? parts[5] : null;
+      String? branch = parts.length > 6 ? parts[6] : null;
+      int? year = parts.length > 7 ? int.tryParse(parts[7]) : null;
+      int? sem = parts.length > 8 ? int.tryParse(parts[8]) : null;
+      String? section = parts.length > 9 ? parts[9] : null;
 
-      print('   OrgId: $orgId (Mine: $_myOrgId)');
-      print('   UserId: $userId (Mine: $_myUserId)');
-      print('   IP: $ipAddress (Mine: $_myIP)');
-
-      if (orgId != _myOrgId) {
-        print('   ❌ Different organization');
+      if (orgId != _myOrgId || ipAddress == _myIP) {
         return;
       }
-
-      if (ipAddress == _myIP) {
-        print('   ❌ This is me (same IP: $ipAddress)');
-        return;
-      }
-
-      int existingIndex = _nearbyDevices.indexWhere((d) => d.ipAddress == ipAddress);
 
       NearbyDevice device = NearbyDevice(
         userId: userId,
@@ -329,28 +361,38 @@ class MeshNetworkService {
         orgId: orgId,
         ipAddress: ipAddress,
         lastSeen: DateTime.now(),
+        department: dept,
+        branch: branch,
+        year: year,
+        semester: sem,
+        section: section,
       );
 
+      int existingIndex = _nearbyDevices.indexWhere((d) => d.ipAddress == ipAddress);
       if (existingIndex >= 0) {
         _nearbyDevices[existingIndex] = device;
-        print('   🔄 Updated device: $userName');
       } else {
         _nearbyDevices.add(device);
-        print('   ✅ NEW DEVICE ADDED: $userName ($userType) at $ipAddress');
+        print('✅ NEW: $userName ($userType) - $dept/$branch');
       }
 
       onDevicesFound?.call(_nearbyDevices);
-      print('   📱 TOTAL DEVICES: ${_nearbyDevices.length}');
-
     } catch (e) {
-      print('❌ Error parsing discovery message: $e');
+      print('❌ Parse error: $e');
     }
   }
 
-  void _startPeriodicAdvertisement(String myIP) {
-    _advertisementTimer = Timer.periodic(Duration(seconds: 2), (timer) async {
+  void _startPeriodicAdvertisement(String myIP) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    String dept = prefs.getString('user_department') ?? '';
+    String branch = prefs.getString('user_branch') ?? '';
+    String year = prefs.getString('user_year') ?? '';
+    String sem = prefs.getString('user_semester') ?? '';
+    String section = prefs.getString('user_section') ?? '';
+
+    _advertisementTimer = Timer.periodic(Duration(seconds: 5), (timer) async {  // ✅ CHANGED: 2s → 5s
       try {
-        String message = 'WAVESHARE:$_myOrgId:$_myUserId:$_myUserType:$_myName';
+        String message = 'WAVESHARE:$_myOrgId:$_myUserId:$_myUserType:$_myName:$dept:$branch:$year:$sem:$section';
         String subnet = myIP.substring(0, myIP.lastIndexOf('.'));
         String broadcastAddress = '$subnet.255';
 
@@ -358,12 +400,10 @@ class MeshNetworkService {
           socket.broadcastEnabled = true;
           List<int> data = utf8.encode(message);
           socket.send(data, InternetAddress(broadcastAddress), DISCOVERY_PORT);
-          print('📢 Broadcast sent to $broadcastAddress');
           socket.close();
         });
-
       } catch (e) {
-        print('Advertisement error: $e');
+        print('❌ Broadcast error: $e');
       }
     });
   }
@@ -565,6 +605,16 @@ class MeshNetworkService {
     List<Map<String, dynamic>> files = [];
     SharedPreferences prefs = await SharedPreferences.getInstance();
 
+    // Get user's info for filtering
+    String userDept = prefs.getString('user_department') ?? '';
+    String userBranch = prefs.getString('user_branch') ?? '';
+    String userYear = prefs.getString('user_year') ?? '';
+    String userSem = prefs.getString('user_semester') ?? '';
+    String userSection = prefs.getString('user_section') ?? '';
+
+    print('🔍 Filtering files for:');
+    print('   Dept: $userDept, Branch: $userBranch, Year: $userYear, Sem: $userSem, Section: $userSection');
+
     List<String> receivedFiles = prefs.getStringList('received_files') ?? [];
 
     for (String fileId in receivedFiles) {
@@ -576,15 +626,84 @@ class MeshNetworkService {
           // Verify file still exists
           if (meta['localPath'] != null) {
             File file = File(meta['localPath']);
-            if (await file.exists()) {
-              files.add(meta);
+            if (!await file.exists()) continue;
+          }
+
+          Map<String, dynamic>? criteria = meta['targetCriteria'];
+          String senderId = meta['senderId'] ?? '';
+          bool isUniversal = senderId.startsWith('GUEST_');
+
+          print('📋 Checking file: ${meta['fileName']}');
+          print('   Sender: ${meta['senderName']} (${meta['senderType']})');
+          print('   SenderId: $senderId');
+          print('   Is Universal: $isUniversal');
+          print('   Criteria: $criteria');
+
+          bool hasAccess = false;
+
+          // ✅ FIX: Universal files have NO restrictions
+          if (isUniversal) {
+            hasAccess = true;
+            print('   ✅ ACCESS: Universal Share (no restrictions)');
+          } else if (criteria == null) {
+            // Old file format - show to everyone
+            hasAccess = true;
+            print('   ✅ ACCESS: Legacy file (no criteria)');
+          } else {
+            // Organization files - apply filters
+            String level = criteria['level'] ?? 'all';
+            String? targetDept = criteria['department'];
+            String? targetBranch = criteria['branch'];
+            String? targetYear = criteria['year']?.toString();
+            String? targetSem = criteria['semester']?.toString();
+            String? targetSection = criteria['section'];
+
+            print('   Target Level: $level');
+            print('   User: $userDept/$userBranch/Y$userYear/S$userSem/$userSection');
+
+            if (level == 'all') {
+              hasAccess = true;
+              print('   ✅ ACCESS: Organization-wide');
+            } else if (level == 'department') {
+              hasAccess = (targetDept == userDept);
+              print('   ${hasAccess ? "✅" : "❌"} ACCESS: Department match');
+            } else if (level == 'branch') {
+              hasAccess = (targetDept == userDept && targetBranch == userBranch);
+              print('   ${hasAccess ? "✅" : "❌"} ACCESS: Branch match');
+            } else if (level == 'year') {
+              hasAccess = (targetDept == userDept &&
+                  targetBranch == userBranch &&
+                  targetYear == userYear);
+              print('   ${hasAccess ? "✅" : "❌"} ACCESS: Year match');
+            } else if (level == 'semester') {
+              hasAccess = (targetDept == userDept &&
+                  targetBranch == userBranch &&
+                  targetYear == userYear &&
+                  targetSem == userSem);
+              print('   ${hasAccess ? "✅" : "❌"} ACCESS: Semester match');
+            } else if (level == 'section') {
+              hasAccess = (targetDept == userDept &&
+                  targetBranch == userBranch &&
+                  targetYear == userYear &&
+                  targetSem == userSem &&
+                  targetSection == userSection);
+              print('   ${hasAccess ? "✅" : "❌"} ACCESS: Section match');
             }
+          }
+
+          if (hasAccess) {
+            files.add(meta);
+            print('   ✅ FILE ADDED TO LIST');
+          } else {
+            print('   ❌ FILE REJECTED');
           }
         } catch (e) {
           print('Error parsing metadata for $fileId: $e');
         }
       }
     }
+
+    print('✅ Filtered ${files.length} files for user');
 
     // Sort by received time (newest first)
     files.sort((a, b) {
@@ -637,6 +756,11 @@ class NearbyDevice {
   final String orgId;
   final String ipAddress;
   final DateTime lastSeen;
+  final String? department;
+  final String? branch;
+  final int? year;
+  final int? semester;
+  final String? section;
 
   NearbyDevice({
     required this.userId,
@@ -645,6 +769,11 @@ class NearbyDevice {
     required this.orgId,
     required this.ipAddress,
     required this.lastSeen,
+    this.department,
+    this.branch,
+    this.year,
+    this.semester,
+    this.section,
   });
 }
 

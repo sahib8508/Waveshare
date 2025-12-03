@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../utils/constants.dart';
 import '../widgets/landing_button.dart';
 import 'organization_registration.dart';
+import 'member_login_verification_screen.dart';
+import 'universal_share_screen.dart';
 
 class LandingPage extends StatelessWidget {
   const LandingPage({super.key});
@@ -16,17 +18,11 @@ class LandingPage extends StatelessWidget {
             padding: const EdgeInsets.all(AppConstants.paddingLarge),
             child: Column(
               children: [
-                // Logo and Title Section
                 const SizedBox(height: 40),
                 _buildLogoSection(),
                 const SizedBox(height: 60),
-
-                // Buttons Section
                 _buildButtons(context),
-
                 const SizedBox(height: 40),
-
-                // Version Info
                 _buildVersionInfo(),
               ],
             ),
@@ -39,7 +35,6 @@ class LandingPage extends StatelessWidget {
   Widget _buildLogoSection() {
     return Column(
       children: [
-        // Logo (placeholder - replace with actual logo later)
         Container(
           width: 100,
           height: 100,
@@ -61,15 +56,11 @@ class LandingPage extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 20),
-
-        // App Name
         const Text(
           AppConstants.appName,
           style: AppConstants.headingLarge,
         ),
         const SizedBox(height: 8),
-
-        // Tagline
         Text(
           AppConstants.tagline,
           style: AppConstants.bodyLarge.copyWith(
@@ -78,8 +69,6 @@ class LandingPage extends StatelessWidget {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 4),
-
-        // Subtitle
         Text(
           AppConstants.subtitle,
           style: AppConstants.bodyMedium,
@@ -92,7 +81,6 @@ class LandingPage extends StatelessWidget {
   Widget _buildButtons(BuildContext context) {
     return Column(
       children: [
-        // Button 1: Continue as Organization
         LandingButton(
           icon: Icons.business,
           title: 'Continue as Organization',
@@ -103,7 +91,6 @@ class LandingPage extends StatelessWidget {
         ),
         const SizedBox(height: AppConstants.buttonSpacing),
 
-        // Button 2: Join Your Organization
         LandingButton(
           icon: Icons.group,
           title: 'Join Your Organization',
@@ -114,7 +101,6 @@ class LandingPage extends StatelessWidget {
         ),
         const SizedBox(height: AppConstants.buttonSpacing),
 
-        // Button 3: Universal Share
         LandingButton(
           icon: Icons.upload_file,
           title: 'Universal Share',
@@ -125,7 +111,6 @@ class LandingPage extends StatelessWidget {
         ),
         const SizedBox(height: AppConstants.buttonSpacing),
 
-        // Button 4: Chat with Anyone
         LandingButton(
           icon: Icons.chat_bubble,
           title: 'Chat with Anyone',
@@ -151,7 +136,6 @@ class LandingPage extends StatelessWidget {
     );
   }
 
-  // Button Actions (temporary - just show messages)
   void _onOrganizationPressed(BuildContext context) {
     Navigator.push(
       context,
@@ -162,25 +146,17 @@ class LandingPage extends StatelessWidget {
   }
 
   void _onJoinOrganizationPressed(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Join Organization - Coming Soon'),
-        duration: Duration(seconds: 2),
-        backgroundColor: AppConstants.primaryBlue,
-      ),
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const MemberLoginVerificationScreen()),
     );
-    debugPrint('Join Organization button pressed');
   }
 
   void _onUniversalSharePressed(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Universal Share - Coming Soon'),
-        duration: Duration(seconds: 2),
-        backgroundColor: AppConstants.primaryBlue,
-      ),
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const UniversalShareScreen()),
     );
-    debugPrint('Universal Share button pressed');
   }
 
   void _onChatPressed(BuildContext context) {

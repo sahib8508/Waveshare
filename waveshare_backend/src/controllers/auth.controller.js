@@ -857,3 +857,102 @@ exports.testS3Connection = async (req, res) => {
   }
 };
 
+exports.verifyOrgCode = async (req, res) => {
+  try {
+    const { orgCode } = req.params;
+    console.log('🔍 Verifying org code:', orgCode);
+
+    // ✅ CRITICAL: Exact match, case-sensitive
+    const org = await Organization.findOne({ orgCode: orgCode.trim() });
+
+    if (!org) {
+      console.log('❌ Organization not found');
+      return res.status(404).json({
+        success: false,
+        message: 'Organization code not found'
+      });
+    }
+
+    console.log('✅ Organization found:', org.orgName);
+
+    res.json({
+      success: true,
+      orgId: org.orgId,
+      orgName: org.orgName,
+      orgCode: org.orgCode,
+      orgType: org.orgType
+    });
+
+  } catch (error) {
+    console.error('❌ Verify org code error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message 
+    });
+  }
+};
+
+// Add this new endpoint
+exports.getMembersCSV = async (req, res) => {
+  try {
+    const { orgId } = req.params;
+    
+    console.log('📥 CSV request for:', orgId);
+    
+    const org = await Organization.findOne({ orgId });
+    if (!org) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Organization not found' 
+      });
+    }
+
+    if (!org.hasCSVUploaded || !org.membersCSVUrl) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'No CSV uploaded yet' 
+      });
+    }
+
+    // Parse CSV from S3 or database
+    const csvUrl = org.membersCSVUrl;
+    const axios = require('axios');
+    const csvResponse = await axios.get(csvUrl);
+    const csvContent = csvResponse.data;
+
+    // Parse CSV
+    const lines = csvContent.split('\n').filter(line => line.trim());
+    const dataLines = lines.slice(1); // Skip header
+
+    const members = dataLines.map(line => {
+      const parts = line.split(',').map(p => p.trim());
+      return {
+        unique_id: parts[0],
+        name: parts[1],
+        role: parts[2],
+        department: parts[3],
+        branch: parts[4] || null,
+        year: parts[5] ? parseInt(parts[5]) : null,
+        semester: parts[6] ? parseInt(parts[6]) : null,
+        section: parts[7] || null,
+        phone: parts[8],
+        email: parts[9]
+      };
+    });
+
+    console.log(`✅ Returning ${members.length} members`);
+
+    res.json({
+      success: true,
+      members: members,
+      org: {
+        orgId: org.orgId,
+        orgName: org.orgName,
+        orgCode: org.orgCode
+      }
+    });
+  } catch (error) {
+    console.error('❌ Get CSV error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

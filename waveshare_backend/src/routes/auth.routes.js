@@ -20,5 +20,6 @@ router.post('/admin-login', authController.adminLogin);
 // Test Routes
 router.get('/test-s3', authController.testS3);
 router.get('/test-csv-upload', authController.testCSVUpload);
-
+router.get('/get-members-csv/:orgId', authController.getMembersCSV);
+router.get('/verify-org-code/:orgCode', authController.verifyOrgCode);
 module.exports = router;

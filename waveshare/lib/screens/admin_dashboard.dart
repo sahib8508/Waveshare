@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../utils/constants.dart';
+import '../services/mesh_network_service.dart';
 import 'admin_file_share_screen.dart';
+import 'admin_shared_files_screen.dart';
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -23,7 +25,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
   int totalStaff = 0;
   bool hasCSVUploaded = false;
 
-  // ✅ FIX: Declare fullHierarchy variable
+  // ✅ ADD MESH NETWORK SUPPORT
+  final MeshNetworkService _mesh = MeshNetworkService();
+  int nearbyDevices = 0;
+  int availableFiles = 0;
+
   Map<String, dynamic>? fullHierarchy;
 
   @override
@@ -46,10 +52,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
       totalStaff = args['totalStaff'] ?? 0;
       hasCSVUploaded = args['hasCSVUploaded'] ?? false;
 
-      // ✅ GET HIERARCHY
       fullHierarchy = args['hierarchy'] as Map<String, dynamic>?;
 
-      // ✅ DEBUG PRINTS
       print('📊 Stats loaded:');
       print('   Total Members: $totalMembers');
       print('   Total Students: $totalStudents');
@@ -62,7 +66,56 @@ class _AdminDashboardState extends State<AdminDashboard> {
       } else {
         print('   ❌ Hierarchy is NULL!');
       }
+
+      // ✅ Initialize mesh network
+      if (orgId != null && adminId != null) {
+        _initializeMesh();
+      }
     }
+  }
+
+  // ✅ NEW METHOD: Initialize mesh network
+  Future<void> _initializeMesh() async {
+    try {
+      await _mesh.initialize(
+        orgId!,
+        adminId!,
+        'admin',
+        name: adminName ?? 'Admin',
+      );
+
+      _mesh.onDevicesFound = (devices) {
+        if (mounted) {
+          setState(() => nearbyDevices = devices.length);
+        }
+      };
+
+      _mesh.onTransferComplete = (fileId) async {
+        if (mounted) {
+          var files = await _mesh.getReceivedFiles();
+          setState(() => availableFiles = files.length);
+        }
+      };
+
+      await _mesh.startAdvertising();
+      await _mesh.startScanning();
+
+      // Load initial file count
+      var files = await _mesh.getReceivedFiles();
+      if (mounted) {
+        setState(() => availableFiles = files.length);
+      }
+
+      print('✅ Admin mesh network initialized');
+    } catch (e) {
+      print('❌ Admin mesh init failed: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    _mesh.dispose();
+    super.dispose();
   }
 
   @override
@@ -137,7 +190,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
             ],
             const SizedBox(height: 24),
 
-            // ✅ REAL Stats Card
+            // ✅ UPDATED Stats Card
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -152,8 +205,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       _buildStatItem(
-                        '👥 $totalMembers',
-                        'Total Members',
+                        '📡 $nearbyDevices',
+                        'Nearby Devices',
                       ),
                       _buildStatItem(
                         '👨‍🎓 $totalStudents',
@@ -170,8 +223,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         'Faculty',
                       ),
                       _buildStatItem(
-                        hasCSVUploaded ? '✅ Uploaded' : '⚠️ Not Uploaded',
-                        'CSV Status',
+                        '📂 $availableFiles',
+                        'Received Files',
                       ),
                     ],
                   ),
@@ -223,7 +276,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   iconColor: AppConstants.primaryBlue,
                   onTap: () {
                     if (orgId != null && adminId != null) {
-                      // ✅ FIX: Pass full hierarchy correctly
                       Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -246,6 +298,18 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   iconColor: AppConstants.primaryBlue,
                   onTap: () {
                     Navigator.pushNamed(context, '/received-files');
+                  },
+                ),
+                _buildActionCard(
+                  icon: Icons.history,
+                  label: 'My Shared Files',
+                  color: const Color(0xFFE3F2FD),
+                  iconColor: AppConstants.primaryBlue,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => AdminSharedFilesScreen()),
+                    );
                   },
                 ),
                 _buildActionCard(
@@ -298,7 +362,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ],
         ),
       ),
-      // ✅ Bottom Navigation Bar
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: 0,
         type: BottomNavigationBarType.fixed,
